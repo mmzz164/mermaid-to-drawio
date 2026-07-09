@@ -83,7 +83,7 @@ CLI は未対応構文を **警告として stderr に出して処理を続行**
 
 ## サポートする mermaid 構文（ネイティブモード）
 
-詳細は `tool/README.md` 参照。要点:
+詳細は `tool/README.ja.md`（日本語）/ `tool/README.md`（英語）参照。要点:
 
 - **flowchart**
   - 方向: `TD/TB/BT/LR/RL` （subgraph 内 `direction X` も尊重）
