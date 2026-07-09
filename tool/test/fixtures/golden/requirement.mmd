@@ -1,0 +1,22 @@
+requirementDiagram
+  requirement test_req {
+    id: 1
+    text: 応答は 1 秒以内であること
+    risk: high
+    verifymethod: test
+  }
+  functionalRequirement fr1 {
+    id: 1.1
+    text: ログイン機能
+    risk: medium
+    verifymethod: inspection
+  }
+  element web_app {
+    type: application
+  }
+  element sim {
+    type: simulation
+  }
+  web_app - satisfies -> fr1
+  fr1 - derives -> test_req
+  test_req <- verifies - sim

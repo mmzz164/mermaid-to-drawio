@@ -1,0 +1,16 @@
+classDiagram
+  class Animal {
+    <<abstract>>
+    +String name
+    -int age
+    +makeSound() void
+  }
+  class Dog {
+    +fetch() bool
+  }
+  class Owner~T~ {
+    +List~Dog~ dogs
+  }
+  Animal <|-- Dog
+  Owner "1" o-- "many" Dog : 飼う
+  note for Dog "良い犬"

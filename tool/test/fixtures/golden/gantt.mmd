@@ -1,0 +1,10 @@
+gantt
+  title 開発計画
+  dateFormat YYYY-MM-DD
+  section 設計
+    要件定義      :done, req, 2026-07-01, 5d
+    基本設計      :active, des, after req, 7d
+  section 実装
+    実装          :crit, imp, after des, 14d
+    テスト        :after imp, 7d
+    リリース      :milestone, after imp, 0d

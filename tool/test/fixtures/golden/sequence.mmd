@@ -1,0 +1,12 @@
+sequenceDiagram
+  box rgb(220, 235, 255) バックエンド
+    participant S as サーバー
+    participant D as DB
+  end
+  participant C as クライアント
+  C->>S: リクエスト
+  rect rgba(255, 230, 200, 0.6)
+    S->>D: クエリ
+    D-->>S: 結果
+  end
+  S-->>C: 応答

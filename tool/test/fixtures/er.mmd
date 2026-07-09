@@ -1,0 +1,20 @@
+erDiagram
+    Order ||--o{ Order : "ParentOrderNumber (self-ref)"
+    Order ||--|| Cart : "1:1"
+    Cart ||--o{ CartItem : "1:N"
+    CartItem }o--|| Product : "N:1"
+    Order ||--o| DeliveryOrder : "0..1:1"
+    DeliveryOrder }o--|| Delivery : "N:1"
+    Delivery }o--|| Drone : "N:1"
+    Product {
+        decimal CapacityL
+    }
+    Drone {
+        decimal MaxCapacityL
+    }
+    Order {
+        varchar ParentOrderNumber
+        bit RobotShortage
+        decimal TotalCapacityL
+        tinyint RequiredRobotCount
+    }

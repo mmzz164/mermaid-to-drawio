@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Running : start / init
+  state Running {
+    direction LR
+    [*] --> Fast
+    Fast --> Slow : throttle
+  }
+  state fork1 <<fork>>
+  Running --> fork1
+  fork1 --> A
+  fork1 --> B
+  A --> [*]
+  B --> [*]
+  note right of Idle : 待機状態

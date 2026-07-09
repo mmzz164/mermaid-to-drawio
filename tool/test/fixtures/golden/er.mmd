@@ -1,0 +1,14 @@
+erDiagram
+  USER ||--o{ ORDER : "places"
+  ORDER ||--|{ LINE_ITEM : contains
+  USER }o..o{ USER : "招待する"
+  USER {
+    int id PK
+    string name "表示名"
+    string email UK
+  }
+  ORDER {
+    int id PK
+    int user_id FK
+    date ordered_at
+  }

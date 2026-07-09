@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant U as User
+    participant W as Webshop
+    participant API as delivery-api
+    participant BG as BG task (same process)
+    participant DB as DB
+
+    U->>W: Checkout
+    W->>API: POST /orders/createorderanddelivery (1st robot)
+    API->>API: total capacity = Σ(Product.CapacityL × CartItem.Qty)
+    API->>API: required count N = min(CEIL(total / Drone.MaxCapacityL), 3)
+    API->>DB: Create parent Order (save TotalCapacityL / RequiredRobotCount) + reserve 1st robot sync
+    alt N == 1
+        API-->>W: Order completed
+    else N >= 2
+        API->>BG: Fire-and-forget reservation tasks for the remaining robots
+        API-->>W: Order completed (returned immediately, BG not awaited)
+    end
+    W->>U: Show order completion screen
+    loop For each remaining robot (BG, sequential)
+        BG->>DB: Reserve robot
+        alt Reservation succeeded
+            BG->>DB: Create child Order (0 items, 0 JPY, ParentOrderNumber)
+        else Reservation failed
+            BG->>DB: Set parent Order.RobotShortage = true
+            Note over BG: Abort remaining attempts (no retry)
+        end
+    end

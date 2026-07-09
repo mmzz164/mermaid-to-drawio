@@ -1,0 +1,33 @@
+flowchart LR
+    subgraph Webshop["Webshop"]
+        UI[Order Confirmation]
+        DS[Delivery Status Page]
+    end
+    subgraph Backend["delivery-api"]
+        OS[OrderService]
+        DSv[DeliveryService]
+        Judge[Multi-Robot Judgment]
+        ChildCreate[Child Order Creator]
+    end
+    subgraph Tracker["delivery-order-tracker"]
+        LEH[LocationEventHandler]
+        SR[SignalR Hub]
+    end
+    subgraph MDP["MD Portal"]
+        PM[Product Master]
+        RM[Robot Master]
+    end
+    subgraph PT["Picker Tool"]
+        OL[OrderCard 一覧]
+    end
+    PM -- CapacityL を参照 --> Judge
+    RM -- MaxCapacityL を参照 --> Judge
+    UI -- 注文確定 --> OS
+    OS -- 容積判定 --> Judge
+    Judge -- 1台目 同期予約 --> DSv
+    Judge -- 2台目以降 背景予約 --> ChildCreate
+    ChildCreate -- 子 Order 永続化 --> OS
+    DSv -- ロボット位置イベント --> LEH
+    LEH -- 親 OrderNumber に集約 --> SR
+    SR -- N機分の telemetry --> DS
+    OS -- 親子注文データ --> OL

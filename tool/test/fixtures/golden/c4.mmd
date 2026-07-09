@@ -1,0 +1,16 @@
+C4Context
+  title インターネットバンキングのシステムコンテキスト
+  Person(customerA, "銀行の顧客", "銀行口座を持つ個人顧客")
+  Enterprise_Boundary(b0, "銀行") {
+    System(SystemAA, "インターネットバンキング", "顧客が口座情報を閲覧できる")
+    System_Boundary(b1, "基幹系") {
+      SystemDb(SystemD, "口座DB", "口座情報を保持")
+      System(SystemE, "メインフレーム", "勘定系システム")
+    }
+  }
+  System_Ext(SystemC, "メール配信", "通知メールを送る")
+  Rel(customerA, SystemAA, "利用する", "HTTPS")
+  Rel(SystemAA, SystemD, "読み書き", "JDBC")
+  Rel(SystemAA, SystemE, "取引実行")
+  Rel(SystemAA, SystemC, "メール送信を依頼")
+  BiRel(SystemD, SystemE, "同期")

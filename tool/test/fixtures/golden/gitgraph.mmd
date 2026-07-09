@@ -1,0 +1,14 @@
+gitGraph
+  commit id: "init"
+  commit tag: "v0.1"
+  branch develop
+  commit
+  commit id: "feat-x"
+  checkout main
+  commit
+  merge develop tag: "v1.0"
+  branch hotfix
+  commit type: HIGHLIGHT
+  checkout main
+  merge hotfix
+  cherry-pick id: "feat-x"
