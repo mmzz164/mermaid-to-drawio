@@ -171,3 +171,20 @@ test("convertMermaidToDrawio routes all new kinds natively", async () => {
     assert.doesNotMatch(xml, /data:image/, src.slice(0, 20));
   }
 });
+
+test("gitGraph: every branch gets a full-width lane line", () => {
+  const { xml } = gitGraphToDrawio(`gitGraph
+  commit id: "a"
+  branch dev
+  commit id: "b"
+  checkout main
+  commit id: "c"
+  branch hotfix
+  commit id: "d"
+`);
+  assert.equal((xml.match(/gg-lane-/g) || []).length, 3);
+  // The hotfix lane spans at least as far right as the last commit's dot.
+  const lane = xml.match(/id="gg-lane-2".*?<mxPoint x="(\d+)" y="\d+" as="targetPoint"/s);
+  const lastDot = xml.match(/id="gg-c-3".*?<mxGeometry x="(\d+)"/s);
+  assert.ok(+lane[1] >= +lastDot[1], "lane extends past the last commit");
+});

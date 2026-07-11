@@ -172,7 +172,22 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
     );
   });
 
-  // Parent edges first (behind dots). Cross-lane edges bend at the child's x.
+  // Full-width lane lines: mermaid draws every branch line across the whole
+  // chart, so lanes read as continuous even where a branch has few commits.
+  const xEnd = x0 + model.commits.length * PITCH_X;
+  model.branches.forEach((b, i) => {
+    const y = MARGIN + i * PITCH_Y + PITCH_Y / 2;
+    cells.push(
+      `<mxCell id="gg-lane-${i}" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=${laneColor(b.name)};" edge="1" parent="1">` +
+        `<mxGeometry relative="1" as="geometry">` +
+        `<mxPoint x="${round(x0)}" y="${round(y)}" as="sourcePoint" />` +
+        `<mxPoint x="${round(xEnd)}" y="${round(y)}" as="targetPoint" />` +
+        `</mxGeometry>` +
+        `</mxCell>`
+    );
+  });
+
+  // Parent edges next (still behind dots). Cross-lane edges bend at the child's x.
   let ei = 0;
   for (const c of model.commits) {
     for (const pid of c.parents) {
