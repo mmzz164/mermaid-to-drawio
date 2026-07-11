@@ -31,6 +31,10 @@ import { sankeyToDrawio, parseSankey } from "./sankey-to-drawio.js";
 import { gitGraphToDrawio, parseGitGraph } from "./gitgraph-to-drawio.js";
 import { requirementToDrawio, parseRequirementDiagram } from "./requirement-to-drawio.js";
 import { c4ToDrawio, parseC4 } from "./c4-to-drawio.js";
+import { treemapToDrawio, parseTreemap } from "./treemap-to-drawio.js";
+import { blockToDrawio, parseBlock } from "./block-to-drawio.js";
+import { architectureToDrawio, parseArchitecture } from "./architecture-to-drawio.js";
+import { zenumlToDrawio, parseZenuml } from "./zenuml-to-drawio.js";
 import { findXmlAttributeProblems } from "./drawio-xml.js";
 
 export {
@@ -484,11 +488,20 @@ export async function convertMermaidToDrawio(mermaidSource, opts = {}) {
       result = requirementToDrawio(mermaidSource, effectiveOpts);
     } else if (kind === "C4") {
       result = c4ToDrawio(mermaidSource, effectiveOpts);
+    } else if (kind === "treemap") {
+      result = treemapToDrawio(mermaidSource, effectiveOpts);
+    } else if (kind === "block") {
+      result = blockToDrawio(mermaidSource, effectiveOpts);
+    } else if (kind === "architecture") {
+      result = architectureToDrawio(mermaidSource, effectiveOpts);
+    } else if (kind === "zenuml") {
+      result = zenumlToDrawio(mermaidSource, effectiveOpts);
     } else {
       throw new Error(
         `Native mode supports flowchart, erDiagram, sequenceDiagram, stateDiagram, ` +
           `classDiagram, pie, gantt, mindmap, journey, timeline, quadrantChart, ` +
-          `kanban, packet, xychart, radar, sankey, gitGraph, requirementDiagram, and C4. ` +
+          `kanban, packet, xychart, radar, sankey, gitGraph, requirementDiagram, C4, ` +
+          `treemap, block, architecture, and zenuml. ` +
           `Detected: ${kind || "unknown"}. Use --mode png or --mode svg instead.`
       );
     }
@@ -552,6 +565,7 @@ export function detectDiagramKind(source) {
     if (/^requirementDiagram\b/i.test(line)) return "requirement";
     if (/^C4(Context|Container|Component|Dynamic|Deployment)\b/.test(line)) return "C4";
     if (/^sankey(-beta)?\b/i.test(line)) return "sankey";
+    if (/^treemap(-beta)?\b/i.test(line)) return "treemap";
     if (/^block(-beta)?\b/i.test(line)) return "block";
     if (/^packet(-beta)?\b/i.test(line)) return "packet";
     if (/^kanban\b/i.test(line)) return "kanban";

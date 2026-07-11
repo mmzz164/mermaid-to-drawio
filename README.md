@@ -81,11 +81,11 @@ gitGraph
 
 ## Supported diagrams
 
-**19 Mermaid diagram kinds convert natively:**
+**23 Mermaid diagram kinds convert natively:**
 
-flowchart / graph · erDiagram · sequenceDiagram · stateDiagram(-v2) · classDiagram · pie · gantt · mindmap · journey · timeline · quadrantChart · kanban · packet · xychart · radar · sankey · gitGraph · requirementDiagram · C4 (Context / Container / Component / Dynamic / Deployment)
+flowchart / graph · erDiagram · sequenceDiagram · stateDiagram(-v2) · classDiagram · pie · gantt · mindmap · journey · timeline · quadrantChart · kanban · packet · xychart · radar · sankey · gitGraph · requirementDiagram · C4 (Context / Container / Component / Dynamic / Deployment) · treemap · block · architecture · zenuml
 
-The few remaining kinds (`block-beta`, `architecture-beta`, `zenuml`) can be converted via the optional png/svg image-embedding mode. Unsupported syntax inside a supported diagram degrades gracefully: it is skipped with a warning and conversion continues. CJK labels work everywhere.
+That covers every standard Mermaid diagram type. An optional png/svg image-embedding mode remains as a fallback for anything not yet supported (e.g. brand-new diagram types). Unsupported syntax inside a supported diagram degrades gracefully: it is skipped with a warning and conversion continues. CJK labels — and CJK identifiers — work everywhere.
 
 See [tool/README.md](tool/README.md) for the exact syntax coverage per diagram kind.
 
@@ -143,7 +143,7 @@ Claude Code picks the skill up automatically; it can also be invoked explicitly 
 | `tool/` | The converter: CLI (`src/cli.js`), library (`src/index.js`), one parser + renderer per diagram kind |
 | `tool/README.md` | Full CLI / library documentation (English) |
 | `tool/README.ja.md` | Same documentation in Japanese |
-| `tool/test/` | 188 tests, including golden snapshots that pin the output of every diagram kind byte-for-byte |
+| `tool/test/` | ~290 tests, including golden snapshots that pin the output of every diagram kind byte-for-byte |
 | `SKILL.md` | Claude Code skill definition (Japanese) |
 
 ## Reliability

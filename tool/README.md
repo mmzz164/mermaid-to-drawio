@@ -12,7 +12,7 @@ Three conversion modes:
 | `png` | Renders with mermaid-cli → embeds as a PNG image | all Mermaid diagrams | draw.io |
 | `svg` | Renders with mermaid-cli → embeds as an SVG image | all Mermaid diagrams | draw.io |
 
-The only kinds without a native renderer are `block-beta` / `architecture-beta` / `zenuml` (covered by png/svg mode).
+Every standard Mermaid diagram type now has a native renderer; png/svg mode remains a fallback for anything not yet supported (e.g. future diagram types).
 
 > Note: the image-embedding modes (png/svg) run `@mermaid-js/mermaid-cli` (puppeteer + headless Chromium) under the hood, which is heavyweight. When native mode covers your diagram, prefer it — it is faster, stays editable, and is more portable across tools.
 

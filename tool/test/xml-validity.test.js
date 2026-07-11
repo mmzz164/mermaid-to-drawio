@@ -43,6 +43,10 @@ const SAMPLES = {
   gitGraph: `gitGraph\n  commit id: "a & <b>" tag: "v1 & <2>"`,
   requirement: `requirementDiagram\n  requirement r1 {\n    id: 1\n    text: hello & <world>\n  }\n  element e1 {\n    type: sim\n  }\n  e1 - satisfies -> r1`,
   C4: `C4Context\n  title T & <x>\n  Person(u, "U & <ser>", "d & <escr>")\n  System_Boundary(b, "B & <x>") {\n    Container(c, "C", "tech & <x>", "d")\n  }\n  Rel(u, c, "uses & <x>", "HTTP & <S>")`,
+  treemap: `treemap-beta\n"Cat & <x>"\n    "Leaf & <y>": 10\n    "L2": 5`,
+  block: `block-beta\n  columns 2\n  a["A & <x>"] b["B"]\n  a --> b`,
+  architecture: `architecture-beta\n  group g(cloud)[G & <x>]\n  service s(server)[S & <y>] in g`,
+  zenuml: `zenuml\n  title T & <x>\n  A->B.call() {\n    return r & <y>\n  }`,
 };
 
 for (const [kind, src] of Object.entries(SAMPLES)) {

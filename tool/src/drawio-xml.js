@@ -96,6 +96,14 @@ export function findXmlAttributeProblems(xml) {
   if (((xml.match(/"/g) || []).length & 1) !== 0) {
     problems.push("unbalanced double quotes");
   }
+  // Duplicate mxCell ids make the draw.io viewer refuse the whole model
+  // (renders blank) — e.g. a renderer that emits the root cells 0/1 that
+  // wrapXml already adds. This passes the escaping checks, so guard it here.
+  const ids = new Set();
+  for (const m of xml.matchAll(/<mxCell\s[^>]*\bid="([^"]*)"/g)) {
+    if (ids.has(m[1])) problems.push(`duplicate mxCell id: ${m[1]}`);
+    ids.add(m[1]);
+  }
   return problems;
 }
 

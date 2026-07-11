@@ -69,7 +69,9 @@ function cssFill(color, fallback) {
  */
 export function sequenceToDrawio(mermaidSource, opts = {}) {
   let { diagramName = "Page-1" } = opts;
-  const model = parseSequenceDiagram(mermaidSource);
+  // Accept a pre-parsed model (used by the ZenUML front-end, which produces
+  // the same shape) instead of re-parsing a source string.
+  const model = opts.model || parseSequenceDiagram(mermaidSource);
   // An inline `title <text>` directive overrides the default page name when
   // the caller didn't supply an explicit diagramName.
   if (model.title && (!opts.diagramName || opts.diagramName === "Page-1")) {

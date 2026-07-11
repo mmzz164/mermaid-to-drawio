@@ -1,0 +1,10 @@
+zenuml
+  title Login
+  @Actor User
+  @Boundary Web
+  @Control Auth
+  User->Web.submit(credentials)
+  Web->Auth.verify() {
+    return token
+  }
+  Web->User: welcome

@@ -16,8 +16,8 @@ allowed-tools: Bash, Read, Write, Edit, AskUserQuestion
 
 - パス: `~/.claude/skills/mermaid-to-drawio/tool/`
 - 実行: `node ~/.claude/skills/mermaid-to-drawio/tool/src/cli.js <args>`
-- 対応図式（**ネイティブ変換**）: `flowchart`, `erDiagram`, `sequenceDiagram`, `stateDiagram(-v2)`, `classDiagram`, `pie`, `gantt`, `mindmap`, `journey`, `timeline`, `quadrantChart`, `kanban`, `packet(-beta)`, `xychart(-beta)`, `radar(-beta)`, `sankey(-beta)`, `gitGraph`, `requirementDiagram`, `C4Context/Container/Component/Dynamic/Deployment`
-- ネイティブ非対応の残り（`block-beta`, `architecture-beta`, `zenuml`）は `-m png` / `-m svg` で画像埋め込み可能（要 puppeteer、下記）。図式名は自動判別されエラーメッセージに表示される
+- 対応図式（**ネイティブ変換**、23 種）: `flowchart`, `erDiagram`, `sequenceDiagram`, `stateDiagram(-v2)`, `classDiagram`, `pie`, `gantt`, `mindmap`, `journey`, `timeline`, `quadrantChart`, `kanban`, `packet(-beta)`, `xychart(-beta)`, `radar(-beta)`, `sankey(-beta)`, `gitGraph`, `requirementDiagram`, `C4Context/Container/Component/Dynamic/Deployment`, `treemap(-beta)`, `block(-beta)`, `architecture(-beta)`, `zenuml`
+- 標準的な Mermaid 図式はすべてネイティブ対応済み。`-m png` / `-m svg`（要 puppeteer、下記）は今後の新図式など未対応分へのフォールバック。図式名は自動判別されエラーメッセージに表示される
 
 > 初回利用時に `node_modules` が無ければ `(cd ~/.claude/skills/mermaid-to-drawio/tool && npm install --omit=optional)` を一度だけ実行する（約 2MB・ネイティブモード用）。
 > png/svg モードを使いたい場合のみ `npm install --include=optional`（puppeteer 込み約 500MB）+ `npx puppeteer browsers install chrome-headless-shell` が必要。CLI が無ければその旨のエラーメッセージを出すので、ユーザーに確認してから入れる。
