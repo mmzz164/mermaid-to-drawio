@@ -115,8 +115,9 @@ export function timelineToDrawio(mermaidSource, opts = {}) {
     );
   }
 
-  // Axis line behind the period boxes.
-  const axisY = periodY + PERIOD_H / 2;
+  // Axis line centered between the period boxes and the events (like mermaid),
+  // not through the period boxes.
+  const axisY = periodY + PERIOD_H + 7;
   const axisX2 = MARGIN + periods.length * (COL_W + COL_GAP) - COL_GAP;
   cells.push(
     `<mxCell id="tl-axis" value="" style="endArrow=blockThin;endFill=1;html=1;strokeColor=#666666;strokeWidth=2;" edge="1" parent="1">` +
@@ -155,6 +156,19 @@ export function timelineToDrawio(mermaidSource, opts = {}) {
           `<mxGeometry x="${x}" y="${periodY}" width="${COL_W}" height="${PERIOD_H}" as="geometry" />` +
           `</mxCell>`
       );
+      // Dashed connector from the period box down through its events (drawn
+      // first so it sits behind the white event boxes), crossing the axis.
+      if (period.events.length) {
+        const cxp = x + COL_W / 2;
+        let colBottom = eventsY;
+        for (const ev of period.events) colBottom += Math.max(30, measureMultiline(ev, 18).lineCount * 15 + 12) + EVENT_GAP;
+        cells.push(
+          `<mxCell id="tl-conn-${col}" value="" style="endArrow=none;html=1;dashed=1;dashPattern=4 4;strokeColor=#9e9e9e;" edge="1" parent="1">` +
+            `<mxGeometry relative="1" as="geometry">` +
+            `<mxPoint x="${round(cxp)}" y="${round(periodY + PERIOD_H)}" as="sourcePoint" />` +
+            `<mxPoint x="${round(cxp)}" y="${round(colBottom - EVENT_GAP)}" as="targetPoint" /></mxGeometry></mxCell>`
+        );
+      }
       let ey = eventsY;
       period.events.forEach((ev, ei) => {
         const lines = measureMultiline(ev, 18).lineCount;

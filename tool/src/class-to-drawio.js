@@ -19,17 +19,23 @@ function escapeXml(s) {
     .replace(/'/g, "&apos;");
 }
 
+// Mermaid formats a method's return type after a colon: `area() double` is
+// displayed `area() : double`. Methods with no return type are left alone.
+function withReturnColon(m) {
+  return m.replace(/(\))\s+([^\s:].*)$/, "$1 : $2");
+}
+
 function classBlockSize(cls) {
   let widest = visualWidth(cls.label || cls.id);
   for (const a of cls.attributes) widest = Math.max(widest, visualWidth(a));
-  for (const m of cls.methods) widest = Math.max(widest, visualWidth(m));
+  for (const m of cls.methods) widest = Math.max(widest, visualWidth(withReturnColon(m)));
   if (cls.stereotype) widest = Math.max(widest, visualWidth(`<<${cls.stereotype}>>`));
   const w = Math.max(MIN_W, Math.round(widest * CHAR_PX) + PAD_X * 2);
-  const rows = cls.attributes.length + cls.methods.length;
+  // Mermaid always shows the attribute AND method compartments (with their
+  // dividers) even when empty, so each contributes at least one row.
+  const rows = Math.max(1, cls.attributes.length) + Math.max(1, cls.methods.length);
   const stereoH = cls.stereotype ? ROW_H : 0;
-  const h =
-    HEADER_H + stereoH + rows * ROW_H +
-    (cls.attributes.length ? 4 : 0) + (cls.methods.length ? 4 : 0);
+  const h = HEADER_H + stereoH + rows * ROW_H + 8;
   return { w, h: Math.max(HEADER_H + ROW_H, h) };
 }
 
@@ -225,18 +231,17 @@ export function classDiagramToDrawio(src, opts = {}) {
       parts.push(`<p style=\"margin:0;padding:4px 8px 0;text-align:center;font-style:italic;color:#666;\">«${escapeXml(cls.stereotype)}»</p>`);
     }
     parts.push(`<p style=\"margin:0;padding:${cls.stereotype ? "0" : "4px"} 8px 4px;text-align:center;font-weight:bold;border-bottom:1px solid #999;\">${escapeXml(cls.label)}</p>`);
-    if (cls.attributes.length) {
-      const inner = cls.attributes
-        .map((a) => `<div style=\"padding:2px 10px;\">${escapeXml(a)}</div>`) // attr per line
-        .join("");
-      parts.push(`<div style=\"border-top:1px solid #ddd;\">${inner}</div>`);
-    }
-    if (cls.methods.length) {
-      const inner = cls.methods
-        .map((m) => `<div style=\"padding:2px 10px;\">${escapeXml(m)}</div>`) // method per line
-        .join("");
-      parts.push(`<div style=\"border-top:1px solid #ddd;\">${inner}</div>`);
-    }
+    // Both compartments always render (with their divider) even when empty —
+    // matching mermaid's 3-band UML box.
+    const emptyBand = `<div style=\"padding:2px 10px;\">&nbsp;</div>`;
+    const attrInner = cls.attributes.length
+      ? cls.attributes.map((a) => `<div style=\"padding:2px 10px;\">${escapeXml(a)}</div>`).join("")
+      : emptyBand;
+    parts.push(`<div style=\"border-top:1px solid #ddd;\">${attrInner}</div>`);
+    const methInner = cls.methods.length
+      ? cls.methods.map((m) => `<div style=\"padding:2px 10px;\">${escapeXml(withReturnColon(m))}</div>`).join("")
+      : emptyBand;
+    parts.push(`<div style=\"border-top:1px solid #ddd;\">${methInner}</div>`);
     const value = parts.join("");
 
     const style = "rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;fillColor=#ffffff;strokeColor=#666666;fontSize=12;";

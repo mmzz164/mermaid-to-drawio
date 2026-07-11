@@ -64,7 +64,7 @@ function arrowEndForCard(card) {
   // Choose a drawio arrow end style based on cardinality.
   // draw.io built-in ER arrow head names:
   //   ERone, ERmany, ERzeroToOne, ERoneToMany, ERzeroToMany
-  if (card === "||") return "ERone";
+  if (card === "||") return "ERmandOne"; // exactly one = double bar, like mermaid
   if (card === "|o" || card === "o|") return "ERzeroToOne";
   if (card === "}o" || card === "o{") return "ERzeroToMany";
   if (card === "}|" || card === "|{") return "ERoneToMany";

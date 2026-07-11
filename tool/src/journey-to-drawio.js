@@ -114,6 +114,7 @@ export function journeyToDrawio(mermaidSource, opts = {}) {
 
   let col = 0;
   let id = 0;
+  const connectors = []; // {cx, cy} per task — for the timeline connector lines
   for (const [si, sec] of model.sections.entries()) {
     if (sec.tasks.length === 0) continue;
     const x0 = MARGIN + col * (COL_W + COL_GAP);
@@ -140,6 +141,7 @@ export function journeyToDrawio(mermaidSource, opts = {}) {
       // Score marker (higher score = higher position)
       const clamped = Math.max(1, Math.min(5, task.score));
       const cy = baseline - (clamped / 5) * CHART_H;
+      connectors.push({ cx, cy });
       const { fill: fFill, stroke: fStroke } = faceColor(task.score);
       cells.push(
         `<mxCell id="j-dot-${id}" value="${escapeXml(String(task.score))}" ` +
@@ -161,6 +163,24 @@ export function journeyToDrawio(mermaidSource, opts = {}) {
       id++;
     }
   }
+
+  // The journey timeline: a horizontal arrow along the baseline, with a faint
+  // dashed connector dropping from each score marker down to it (like mermaid).
+  const timelineEndX = MARGIN + col * (COL_W + COL_GAP) - COL_GAP + 10;
+  for (const [ci, c] of connectors.entries()) {
+    cells.push(
+      `<mxCell id="j-conn-${ci}" value="" style="endArrow=none;html=1;dashed=1;dashPattern=4 4;strokeColor=#b0b0b0;" edge="1" parent="1">` +
+        `<mxGeometry relative="1" as="geometry">` +
+        `<mxPoint x="${round(c.cx)}" y="${round(c.cy + DOT_R)}" as="sourcePoint" />` +
+        `<mxPoint x="${round(c.cx)}" y="${round(baseline)}" as="targetPoint" /></mxGeometry></mxCell>`
+    );
+  }
+  cells.push(
+    `<mxCell id="j-timeline" value="" style="endArrow=block;endFill=1;html=1;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1">` +
+      `<mxGeometry relative="1" as="geometry">` +
+      `<mxPoint x="${MARGIN}" y="${round(baseline)}" as="sourcePoint" />` +
+      `<mxPoint x="${round(timelineEndX)}" y="${round(baseline)}" as="targetPoint" /></mxGeometry></mxCell>`
+  );
 
   // Actor legend on the right
   const legendX = MARGIN + col * (COL_W + COL_GAP) + 20;

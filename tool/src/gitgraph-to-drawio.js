@@ -268,7 +268,8 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
     const size = isMerge ? DOT + 6 : DOT;
     let style;
     if (c.type === "HIGHLIGHT") {
-      style = `rounded=0;html=1;fillColor=${color};strokeColor=${darken(color)};strokeWidth=2;`;
+      // Hollow square (white interior, coloured ring) like mermaid.
+      style = `rounded=0;html=1;fillColor=#ffffff;strokeColor=${color};strokeWidth=3;`;
     } else if (c.type === "REVERSE") {
       style = `ellipse;html=1;fillColor=#ffffff;strokeColor=${darken(color)};strokeWidth=2;fontStyle=1;`;
     } else if (isMerge) {
