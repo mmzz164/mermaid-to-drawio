@@ -51,8 +51,9 @@ function estimateColumnWidths(entity, totalWidth) {
 
 function estimateEntitySize(entity) {
   const rows = entity.attributes.length;
-  // Take the visual width of the widest line: name OR any "type name (keys) - comment"
-  let widest = visualWidth(entity.name);
+  // Take the visual width of the widest line: display label OR any
+  // "type name (keys) - comment"
+  let widest = visualWidth(entity.label ?? entity.name);
   for (const a of entity.attributes) {
     widest = Math.max(widest, visualWidth(formatAttr(a)));
   }
@@ -125,7 +126,7 @@ export function erDiagramToDrawio(mermaidSource, opts = {}) {
       "shape=table;startSize=28;container=1;collapsible=0;childLayout=tableLayout;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;";
 
     cells.push(
-      `<mxCell id="${escapeXml(entId)}" value="${escapeXml(entity.name)}" style="${headerStyle}" vertex="1" parent="1">` +
+      `<mxCell id="${escapeXml(entId)}" value="${escapeXml(entity.label ?? entity.name)}" style="${headerStyle}" vertex="1" parent="1">` +
         `<mxGeometry x="${round(x)}" y="${round(y)}" width="${round(w)}" height="${round(h)}" as="geometry" />` +
         `</mxCell>`
     );

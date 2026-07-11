@@ -18,6 +18,67 @@ Mermaid is the fastest way to *write* a diagram; draw.io is the best place to *p
 
 It is intentionally lightweight: the native converter needs only [dagre](https://github.com/dagrejs/dagre) for layout (~2 MB of `node_modules`, no browser, no puppeteer).
 
+## What it looks like
+
+Each pair below shows the Mermaid source (rendered by GitHub) and the converted draw.io file opened in draw.io — where every node is a real shape you can move, restyle, and reconnect.
+
+**Flowchart** — subgraphs, node shapes, edge labels, `style` directives:
+
+```mermaid
+flowchart LR
+  A[Web Client] --> B{Cache hit?}
+  B -->|yes| C[Return cached page]
+  B -->|no| D[Render pipeline]
+  subgraph Backend
+    D --> E[(Database)]
+    E --> F[Template engine]
+  end
+  F --> G([Response])
+  C --> G
+  style G fill:#d5e8d4,stroke:#82b366
+```
+
+![Flowchart converted to draw.io](docs/images/demo-flow.png)
+
+**Sequence diagram** — participant `box` groups, `rect` highlights, activations, `autonumber`:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  box rgb(220, 235, 255) Backend
+    participant API
+    participant DB
+  end
+  participant Client
+  Client->>+API: GET /orders
+  rect rgba(255, 230, 200, 0.55)
+    API->>+DB: SELECT orders
+    DB-->>-API: rows
+  end
+  API-->>-Client: 200 OK
+```
+
+![Sequence diagram converted to draw.io](docs/images/demo-seq.png)
+
+**Git graph** — branches, merges, tags, highlighted commits:
+
+```mermaid
+gitGraph
+  commit id: "init"
+  commit tag: "v0.1"
+  branch develop
+  commit id: "feat-api"
+  commit id: "feat-ui"
+  checkout main
+  merge develop tag: "v1.0"
+  branch hotfix
+  commit id: "fix" type: HIGHLIGHT
+  checkout main
+  merge hotfix tag: "v1.0.1"
+```
+
+![Git graph converted to draw.io](docs/images/demo-git.png)
+
 ## Supported diagrams
 
 **19 Mermaid diagram kinds convert natively:**
@@ -30,7 +91,13 @@ See [tool/README.md](tool/README.md) for the exact syntax coverage per diagram k
 
 ## Quick start (CLI)
 
-Requires Node.js ≥ 18.
+Requires Node.js ≥ 18. The fastest way is npx:
+
+```bash
+npx mermaid2drawio diagram.mmd     # → diagram.drawio
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/mmzz164/mermaid-to-drawio.git

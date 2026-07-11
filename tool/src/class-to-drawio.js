@@ -60,34 +60,136 @@ export function classDiagramToDrawio(src, opts = {}) {
   const { diagramName = "Page-1" } = opts;
   const model = parseClassDiagram(src);
 
-  const g = new dagre.graphlib.Graph({ multigraph: true });
-  g.setGraph({
-    rankdir: dirToRankdir(model.direction),
-    nodesep: 50,
-    ranksep: 80,
-    marginx: 20,
-    marginy: 20,
-  });
-  g.setDefaultEdgeLabel(() => ({}));
+  const rankdir = dirToRankdir(model.direction);
+  function makeGraph(nodesep, ranksep, margin) {
+    const g = new dagre.graphlib.Graph({ multigraph: true });
+    g.setGraph({ rankdir, nodesep, ranksep, marginx: margin, marginy: margin });
+    g.setDefaultEdgeLabel(() => ({}));
+    return g;
+  }
 
-  for (const cls of model.classes.values()) {
-    const { w, h } = classBlockSize(cls);
-    g.setNode(cls.id, { width: w, height: h });
+  // Layout result: absolute positions per class + namespace frames.
+  const pos = new Map(); // class id -> {x, y, width, height}
+  const nsFrames = []; // {name, x, y, width, height}
+  let totalW = 0;
+  let totalH = 0;
+  const NS_HEADER = 30; // room for the namespace title inside the frame
+  const NS_PAD = 18;
+
+  if ((model.namespaces || []).length === 0) {
+    const g = makeGraph(50, 80, 20);
+    for (const cls of model.classes.values()) {
+      const { w, h } = classBlockSize(cls);
+      g.setNode(cls.id, { width: w, height: h });
+    }
+    let ei = 0;
+    for (const r of model.relations) {
+      if (!g.hasNode(r.from) || !g.hasNode(r.to)) continue;
+      g.setEdge(r.from, r.to, {}, `e${ei++}`);
+    }
+    dagre.layout(g);
+    for (const cls of model.classes.values()) {
+      const n = g.node(cls.id);
+      if (!n) continue;
+      pos.set(cls.id, { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height });
+    }
+    const ga = g.graph();
+    totalW = ga.width || 0;
+    totalH = ga.height || 0;
+  } else {
+    // Two-level layout: classes inside each namespace get their own dagre
+    // run; the namespace then joins the top-level layout as a single big
+    // node (edges projected onto it), like C4 boundaries.
+    const inner = new Map(); // ns name -> {width, height, positions: Map}
+    for (const ns of model.namespaces) {
+      const g = makeGraph(40, 60, NS_PAD);
+      const members = new Set(ns.classes);
+      for (const id of ns.classes) {
+        const { w, h } = classBlockSize(model.classes.get(id));
+        g.setNode(id, { width: w, height: h });
+      }
+      let ei = 0;
+      for (const r of model.relations) {
+        if (members.has(r.from) && members.has(r.to) && r.from !== r.to) {
+          g.setEdge(r.from, r.to, {}, `e${ei++}`);
+        }
+      }
+      dagre.layout(g);
+      const positions = new Map();
+      for (const id of ns.classes) {
+        const n = g.node(id);
+        positions.set(id, {
+          x: n.x - n.width / 2,
+          y: n.y - n.height / 2 + NS_HEADER,
+          width: n.width,
+          height: n.height,
+        });
+      }
+      const ga = g.graph();
+      inner.set(ns.name, { width: ga.width || 0, height: (ga.height || 0) + NS_HEADER, positions });
+    }
+
+    const g = makeGraph(50, 80, 20);
+    const nsNodeId = (name) => `__ns__${name}`;
+    for (const ns of model.namespaces) {
+      const r = inner.get(ns.name);
+      g.setNode(nsNodeId(ns.name), { width: r.width, height: r.height });
+    }
+    for (const cls of model.classes.values()) {
+      if (cls.namespace) continue;
+      const { w, h } = classBlockSize(cls);
+      g.setNode(cls.id, { width: w, height: h });
+    }
+    const rep = (id) => {
+      const ns = model.classes.get(id)?.namespace;
+      return ns ? nsNodeId(ns) : id;
+    };
+    let ei = 0;
+    for (const r of model.relations) {
+      const a = rep(r.from);
+      const b = rep(r.to);
+      if (a === b || !g.hasNode(a) || !g.hasNode(b)) continue;
+      g.setEdge(a, b, {}, `e${ei++}`);
+    }
+    dagre.layout(g);
+    for (const ns of model.namespaces) {
+      const n = g.node(nsNodeId(ns.name));
+      const r = inner.get(ns.name);
+      const ox = n.x - n.width / 2;
+      const oy = n.y - n.height / 2;
+      nsFrames.push({ name: ns.name, x: ox, y: oy, width: n.width, height: n.height });
+      for (const [id, p] of r.positions) {
+        pos.set(id, { x: ox + p.x, y: oy + p.y, width: p.width, height: p.height });
+      }
+    }
+    for (const cls of model.classes.values()) {
+      if (cls.namespace) continue;
+      const n = g.node(cls.id);
+      if (!n) continue;
+      pos.set(cls.id, { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height });
+    }
+    const ga = g.graph();
+    totalW = ga.width || 0;
+    totalH = ga.height || 0;
   }
-  let ei = 0;
-  for (const r of model.relations) {
-    if (!g.hasNode(r.from) || !g.hasNode(r.to)) continue;
-    g.setEdge(r.from, r.to, {}, `e${ei++}`);
-  }
-  dagre.layout(g);
 
   const cells = [`<mxCell id="0" />`, `<mxCell id="1" parent="0" />`];
 
+  // Namespace frames first, so they sit behind their member classes.
+  for (const [i, f] of nsFrames.entries()) {
+    cells.push(
+      `<mxCell id="cls-ns-${i}" value="${escapeXml(f.name)}" ` +
+        `style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fillColor=#fafafa;strokeColor=#999999;fontSize=12;" vertex="1" parent="1">` +
+        `<mxGeometry x="${round(f.x)}" y="${round(f.y)}" width="${round(f.width)}" height="${round(f.height)}" as="geometry" />` +
+        `</mxCell>`,
+    );
+  }
+
   for (const cls of model.classes.values()) {
-    const node = g.node(cls.id);
+    const node = pos.get(cls.id);
     if (!node) continue;
-    const x = node.x - node.width / 2;
-    const y = node.y - node.height / 2;
+    const x = node.x;
+    const y = node.y;
     const w = node.width;
     const h = node.height;
 
@@ -190,9 +292,8 @@ export function classDiagramToDrawio(src, opts = {}) {
     nId++;
   }
 
-  const ga = g.graph();
-  const pageW = Math.max(850, Math.round(ga.width || 850) + 40);
-  const pageH = Math.max(1100, Math.round(ga.height || 1100) + 40);
+  const pageW = Math.max(850, Math.round(totalW || 850) + 40);
+  const pageH = Math.max(1100, Math.round(totalH || 1100) + 40);
 
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?>` +

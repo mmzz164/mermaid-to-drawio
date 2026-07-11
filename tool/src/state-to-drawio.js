@@ -93,6 +93,7 @@ export function stateToDrawio(src, opts = {}) {
   const parentOf = new Map();
   for (const s of model.states.values()) parentOf.set(s.id, s.parent || null);
   for (const c of model.composites) parentOf.set(c.id, c.parent || null);
+  const compById = new Map(model.composites.map((c) => [c.id, c]));
 
   const childStatesByLevel = new Map();
   const childCompsByLevel = new Map();
@@ -129,6 +130,25 @@ export function stateToDrawio(src, opts = {}) {
 
     const childResults = {};
     for (const cid of directComps) childResults[cid] = layoutLevel(cid);
+
+    // A composite split by `--` contains only synthetic region composites:
+    // stack them vertically (mermaid's concurrency layout) instead of
+    // running dagre over disconnected region nodes.
+    const isRegionStack =
+      directStates.length === 0 &&
+      directComps.length > 0 &&
+      directComps.every((cid) => compById.get(cid)?.isRegion);
+    if (isRegionStack) {
+      const maxW = Math.max(...directComps.map((cid) => childResults[cid].width));
+      const positions = {};
+      let y = 0;
+      for (const cid of directComps) {
+        const r = childResults[cid];
+        positions[cid] = { x: 0, y, width: maxW, height: r.height };
+        y += r.height;
+      }
+      return { width: maxW, height: y, positions, children: childResults, regionStack: true };
+    }
 
     const g = new dagre.graphlib.Graph({ multigraph: true });
     const isInside = levelId != null;
@@ -199,15 +219,36 @@ export function stateToDrawio(src, opts = {}) {
     for (const cid of directComps) {
       const c = model.composites.find((x) => x.id === cid);
       const pos = result.positions[cid];
-      const style =
-        "rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;" +
-        "fillColor=#f5f5f5;strokeColor=#666666;arcSize=8;";
+      // Concurrent regions are invisible containers; the dashed dividers
+      // between them are drawn by the parent below.
+      const style = c.isRegion
+        ? "rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;"
+        : "rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;" +
+          "fillColor=#f5f5f5;strokeColor=#666666;arcSize=8;";
       cells.push(
-        `<mxCell id="${escapeXml(cid)}" value="${escapeXml(c.label)}" style="${style}" vertex="1" parent="${escapeXml(drawioParent)}">` +
+        `<mxCell id="${escapeXml(cid)}" value="${escapeXml(c.isRegion ? "" : c.label)}" style="${style}" vertex="1" parent="${escapeXml(drawioParent)}">` +
           `<mxGeometry x="${round(pos.x)}" y="${round(pos.y)}" width="${round(pos.width)}" height="${round(pos.height)}" as="geometry" />` +
           `</mxCell>`,
       );
       emitLevel(cid, result.children[cid]);
+    }
+
+    // Dashed dividers between stacked concurrent regions (coordinates are
+    // relative to this composite cell).
+    if (result.regionStack && levelId) {
+      let sep = 0;
+      for (const cid of directComps.slice(1)) {
+        const p = result.positions[cid];
+        cells.push(
+          `<mxCell id="${escapeXml(levelId)}-regsep-${++sep}" value="" ` +
+            `style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="${escapeXml(levelId)}">` +
+            `<mxGeometry relative="1" as="geometry">` +
+            `<mxPoint x="0" y="${round(p.y)}" as="sourcePoint" />` +
+            `<mxPoint x="${round(result.width)}" y="${round(p.y)}" as="targetPoint" />` +
+            `</mxGeometry>` +
+            `</mxCell>`,
+        );
+      }
     }
 
     for (const sid of directStates) {

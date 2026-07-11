@@ -14,6 +14,9 @@
  *   - Notes: `note left of X : text` / `note right of X : text` /
  *            multi-line `note left of X\n  ...\nend note`
  *   - `direction LR/TB/RL/BT` at top level or inside a composite state
+ *   - Concurrency: a `--` line inside a composite splits it into parallel
+ *     regions. Regions are materialized as synthetic child composites with
+ *     `isRegion: true` so the renderer can stack them with dividers.
  *
  * Anything else is recorded in `warnings` and skipped, so unsupported
  * constructs degrade gracefully.
@@ -45,7 +48,7 @@ function unquote(s) {
  *   direction: string,
  *   states: Map<string, {id:string,label:string,kind:string,parent:string|null}>,
  *   transitions: Array<{from:string,to:string,label:string|null}>,
- *   composites: Array<{id:string,label:string,parent:string|null,children:string[],direction:string|null}>,
+ *   composites: Array<{id:string,label:string,parent:string|null,children:string[],direction:string|null,isRegion?:boolean}>,
  *   notes: Array<{target:string,position:string,text:string}>,
  *   warnings: string[],
  * }}
@@ -59,6 +62,13 @@ export function parseStateDiagram(source) {
   const notes = [];
   const warnings = [];
   let direction = "TB";
+
+  // Concurrency (`--` separators): while parsing, remember which region of
+  // its parent composite each direct child was declared in; regions are
+  // materialized as synthetic composites in a post-pass.
+  const regionCounter = new Map(); // composite id -> current region index
+  const regioned = new Set(); // composite ids that contain at least one `--`
+  const childRegion = new Map(); // child id -> region index at declaration
 
   // Synthesize a unique anchor id for each `[*]` occurrence so multiple
   // start/end markers don't collapse into a single node. The anchor is
@@ -81,10 +91,15 @@ export function parseStateDiagram(source) {
       if (parent) {
         const c = composites.find((cc) => cc.id === parent);
         if (c) c.children.push(id);
+        childRegion.set(id, regionCounter.get(parent) || 0);
       }
-    } else if (label) {
+    } else {
       const cur = states.get(id);
-      if (cur.label === cur.id) cur.label = label;
+      if (label && cur.label === cur.id) cur.label = label;
+      // A state can be referenced by a transition before its
+      // `state X { ... }` declaration: upgrade its kind so the renderer
+      // doesn't emit it both as a composite frame and as a plain state.
+      if (kind === "composite" && cur.kind !== "composite") cur.kind = "composite";
     }
     return id;
   }
@@ -127,6 +142,19 @@ export function parseStateDiagram(source) {
       continue;
     }
 
+    // Concurrency separator: a bare `--` line splits the enclosing
+    // composite into parallel regions.
+    if (/^-{2,}$/.test(line)) {
+      if (compStack.length === 0) {
+        warnings.push(`Line ${lineNo}: '--' separator outside a composite state`);
+      } else {
+        const topId = compStack[compStack.length - 1];
+        regionCounter.set(topId, (regionCounter.get(topId) || 0) + 1);
+        regioned.add(topId);
+      }
+      continue;
+    }
+
     const dirMatch = line.match(/^direction\s+([A-Z]{2})\s*$/i);
     if (dirMatch) {
       const d = dirMatch[1].toUpperCase();
@@ -159,6 +187,7 @@ export function parseStateDiagram(source) {
         children: [],
         direction: null,
       });
+      if (parent) childRegion.set(id, regionCounter.get(parent) || 0);
       compStack.push(id);
       continue;
     }
@@ -249,6 +278,38 @@ export function parseStateDiagram(source) {
     }
 
     warnings.push(`Line ${lineNo}: could not parse: ${line}`);
+  }
+
+  // Materialize concurrent regions: every composite that contained a `--`
+  // gets one synthetic child composite per region, and its direct children
+  // are re-parented into the region they were declared in. The renderer
+  // stacks region composites vertically with dashed dividers.
+  for (const compId of regioned) {
+    const regionCount = (regionCounter.get(compId) || 0) + 1;
+    const regionIds = [];
+    for (let i = 0; i < regionCount; i++) {
+      const rid = `${compId}__region${i + 1}`;
+      regionIds.push(rid);
+      composites.push({
+        id: rid,
+        label: "",
+        parent: compId,
+        children: [],
+        direction: null,
+        isRegion: true,
+      });
+    }
+    for (const s of states.values()) {
+      if (s.parent === compId) {
+        s.parent = regionIds[childRegion.get(s.id) ?? 0];
+      }
+    }
+    for (const c of composites) {
+      if (c.isRegion) continue;
+      if (c.parent === compId) {
+        c.parent = regionIds[childRegion.get(c.id) ?? 0];
+      }
+    }
   }
 
   return {

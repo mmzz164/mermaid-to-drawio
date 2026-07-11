@@ -166,3 +166,30 @@ test("convertMermaidToDrawio: end-to-end with the user's delivery ER", async () 
   // Self-reference exists
   assert.match(xml, /source="Order"[^/]*target="Order"/);
 });
+
+test("er parser: entity aliases id[Label] / id[\"Quoted Label\"]", () => {
+  const m = parseErDiagram(`erDiagram
+  p[Person] {
+    string firstName
+  }
+  a["Customer Account"] ||--o{ d[Delivery-Address] : has
+  p ||--|| a : owns
+`);
+  assert.deepEqual(m.warnings, []);
+  assert.equal(m.entities.get("p").label, "Person");
+  assert.equal(m.entities.get("a").label, "Customer Account");
+  assert.equal(m.entities.get("d").label, "Delivery-Address");
+  // Relations reference ids, not labels.
+  assert.equal(m.relationships[1].from, "p");
+  assert.equal(m.relationships[1].to, "a");
+});
+
+test("er renderer: alias labels are displayed, ids stay as cell ids", () => {
+  const { xml, warnings } = erDiagramToDrawio(`erDiagram
+  p[Person] ||--o{ o[注文] : places
+`);
+  assert.deepEqual(warnings, []);
+  assert.match(xml, /id="p" value="Person"/);
+  assert.match(xml, /id="o" value="注文"/);
+  assert.match(xml, /source="p" target="o"/);
+});

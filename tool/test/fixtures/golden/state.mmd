@@ -13,3 +13,10 @@ stateDiagram-v2
   A --> [*]
   B --> [*]
   note right of Idle : 待機状態
+  state Concurrent {
+    [*] --> P1
+    P1 --> P2
+    --
+    [*] --> Q1
+  }
+  Idle --> Concurrent

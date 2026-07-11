@@ -95,3 +95,66 @@ test("convertMermaidToDrawio: native state end-to-end via detector", async () =>
   assert.match(xml, /value="start"/);
   assert.match(xml, /value="stop"/);
 });
+
+test("state parser: -- splits a composite into concurrent regions", () => {
+  const m = parseStateDiagram(`stateDiagram-v2
+  [*] --> Active
+  state Active {
+    [*] --> NumLockOff
+    NumLockOff --> NumLockOn : EvNumLockPressed
+    --
+    [*] --> CapsLockOff
+    CapsLockOff --> CapsLockOn : EvCapsLockPressed
+  }
+`);
+  assert.deepEqual(m.warnings, []);
+  const regions = m.composites.filter((c) => c.isRegion);
+  assert.equal(regions.length, 2);
+  assert.ok(regions.every((r) => r.parent === "Active"));
+  assert.equal(m.states.get("NumLockOff").parent, "Active__region1");
+  assert.equal(m.states.get("CapsLockOff").parent, "Active__region2");
+});
+
+test("state parser: -- outside a composite warns", () => {
+  const m = parseStateDiagram(`stateDiagram-v2
+  A --> B
+  --
+`);
+  assert.equal(m.warnings.length, 1);
+  assert.match(m.warnings[0], /outside a composite/);
+});
+
+test("state renderer: regions stack vertically with a dashed divider", () => {
+  const { xml, warnings } = stateToDrawio(`stateDiagram-v2
+  state Active {
+    A1 --> A2
+    --
+    B1 --> B2
+  }
+`);
+  assert.deepEqual(warnings, []);
+  // Divider between the two regions, parented to the composite.
+  assert.match(xml, /id="Active-regsep-1"[^>]*parent="Active"/);
+  assert.match(xml, /dashed=1/);
+  // Regions are invisible containers.
+  assert.match(xml, /id="Active__region1"[^>]*style="[^"]*strokeColor=none/);
+  // Region 2 sits below region 1 (its y offset inside Active is positive).
+  const r1 = xml.match(/id="Active__region1"[^>]*>.*?<mxGeometry x="(-?\d+)" y="(-?\d+)"/s);
+  const r2 = xml.match(/id="Active__region2"[^>]*>.*?<mxGeometry x="(-?\d+)" y="(-?\d+)"/s);
+  assert.ok(+r2[2] > +r1[2], "region2 below region1");
+  // States are parented to their regions.
+  assert.match(xml, /id="A1"[^>]*parent="Active__region1"/);
+  assert.match(xml, /id="B1"[^>]*parent="Active__region2"/);
+});
+
+test("state renderer: composite referenced before declaration is not emitted twice", () => {
+  const { xml } = stateToDrawio(`stateDiagram-v2
+  [*] --> Active
+  state Active {
+    A --> B
+  }
+`);
+  assert.equal((xml.match(/<mxCell id="Active"/g) || []).length, 1);
+  // ...and it is the composite frame, not a plain state.
+  assert.match(xml, /id="Active"[^>]*style="[^"]*verticalAlign=top/);
+});

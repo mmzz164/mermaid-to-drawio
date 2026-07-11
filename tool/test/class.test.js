@@ -111,3 +111,46 @@ test("convertMermaidToDrawio: native class diagram end-to-end via detector", asy
   assert.match(xml, /<mxCell id="Foo"/);
   assert.match(xml, /<mxCell id="Baz"/);
 });
+
+test("class parser: namespace blocks assign membership", () => {
+  const m = parseClassDiagram(`classDiagram
+  namespace BaseShapes {
+    class Triangle
+    class Rectangle {
+      double width
+      double height
+    }
+  }
+  class Free
+  Triangle -- Rectangle
+  Free --> Triangle
+`);
+  assert.deepEqual(m.warnings, []);
+  assert.equal(m.namespaces.length, 1);
+  assert.deepEqual(m.namespaces[0].classes, ["Triangle", "Rectangle"]);
+  assert.equal(m.classes.get("Triangle").namespace, "BaseShapes");
+  assert.equal(m.classes.get("Rectangle").namespace, "BaseShapes");
+  assert.equal(m.classes.get("Free").namespace, null);
+  assert.deepEqual(m.classes.get("Rectangle").attributes, ["double width", "double height"]);
+});
+
+test("class renderer: namespace frame encloses its member classes", () => {
+  const { xml, warnings } = classDiagramToDrawio(`classDiagram
+  namespace Shapes {
+    class Triangle
+    class Rectangle
+  }
+  class Free
+  Free --> Triangle
+`);
+  assert.deepEqual(warnings, []);
+  assert.match(xml, /value="Shapes"/);
+  const frame = xml.match(/id="cls-ns-0"[^>]*>.*?<mxGeometry x="(-?\d+)" y="(-?\d+)" width="(\d+)" height="(\d+)"/s);
+  const tri = xml.match(/id="Triangle"[^>]*>.*?<mxGeometry x="(-?\d+)" y="(-?\d+)" width="(\d+)" height="(\d+)"/s);
+  assert.ok(frame && tri);
+  const [fx, fy, fw, fh] = frame.slice(1).map(Number);
+  const [tx, ty, tw, th] = tri.slice(1).map(Number);
+  assert.ok(tx >= fx && ty >= fy && tx + tw <= fx + fw && ty + th <= fy + fh, "Triangle inside frame");
+  // The frame is emitted before the classes so it stays behind them.
+  assert.ok(xml.indexOf('id="cls-ns-0"') < xml.indexOf('id="Triangle"'));
+});

@@ -1,16 +1,47 @@
 {
   "name": "mermaid2drawio",
-  "version": "0.2.0",
-  "description": "Convert Mermaid diagrams (19 kinds, incl. flowchart/sequence/gantt/C4) to native draw.io (.drawio) shapes",
+  "version": "0.3.0",
+  "description": "Convert Mermaid diagrams (19 kinds, incl. flowchart/sequence/gantt/C4) to native, editable draw.io (.drawio) shapes",
   "type": "module",
   "bin": {
     "mermaid2drawio": "src/cli.js"
   },
   "main": "src/index.js",
+  "files": [
+    "src",
+    "README.md",
+    "README.ja.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
-    "golden:update": "UPDATE_GOLDEN=1 node --test test/golden.test.js"
+    "golden:update": "UPDATE_GOLDEN=1 node --test test/golden.test.js",
+    "prepublishOnly": "npm test"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmzz164/mermaid-to-drawio.git",
+    "directory": "tool"
+  },
+  "homepage": "https://github.com/mmzz164/mermaid-to-drawio#readme",
+  "bugs": {
+    "url": "https://github.com/mmzz164/mermaid-to-drawio/issues"
+  },
+  "keywords": [
+    "mermaid",
+    "drawio",
+    "draw.io",
+    "diagrams",
+    "diagrams.net",
+    "converter",
+    "flowchart",
+    "sequence-diagram",
+    "gantt",
+    "c4",
+    "uml",
+    "erd"
+  ],
+  "author": "mmzz164",
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0"
   },

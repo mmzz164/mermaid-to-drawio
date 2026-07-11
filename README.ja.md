@@ -17,6 +17,67 @@ flowchart LR                    ┌────────┐      ┌───
 
 意図的に軽量な作りで、ネイティブ変換はレイアウト用の [dagre](https://github.com/dagrejs/dagre) だけに依存します(`node_modules` 約 2MB、ブラウザ・puppeteer 不要)。
 
+## 変換例
+
+以下の各ペアは「Mermaid ソース(GitHub がレンダリング)」と「変換した .drawio を draw.io で開いた実画面」です。すべてのノードが移動・再スタイル・つなぎ替え可能な実シェイプになっています。
+
+**フローチャート** — サブグラフ、ノード形状、エッジラベル、`style` ディレクティブ:
+
+```mermaid
+flowchart LR
+  A[Web Client] --> B{Cache hit?}
+  B -->|yes| C[Return cached page]
+  B -->|no| D[Render pipeline]
+  subgraph Backend
+    D --> E[(Database)]
+    E --> F[Template engine]
+  end
+  F --> G([Response])
+  C --> G
+  style G fill:#d5e8d4,stroke:#82b366
+```
+
+![draw.io に変換したフローチャート](docs/images/demo-flow.png)
+
+**シーケンス図** — 参加者の `box` グループ、`rect` ハイライト、活性化バー、`autonumber`:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  box rgb(220, 235, 255) Backend
+    participant API
+    participant DB
+  end
+  participant Client
+  Client->>+API: GET /orders
+  rect rgba(255, 230, 200, 0.55)
+    API->>+DB: SELECT orders
+    DB-->>-API: rows
+  end
+  API-->>-Client: 200 OK
+```
+
+![draw.io に変換したシーケンス図](docs/images/demo-seq.png)
+
+**Git グラフ** — ブランチ、マージ、タグ、強調コミット:
+
+```mermaid
+gitGraph
+  commit id: "init"
+  commit tag: "v0.1"
+  branch develop
+  commit id: "feat-api"
+  commit id: "feat-ui"
+  checkout main
+  merge develop tag: "v1.0"
+  branch hotfix
+  commit id: "fix" type: HIGHLIGHT
+  checkout main
+  merge hotfix tag: "v1.0.1"
+```
+
+![draw.io に変換した Git グラフ](docs/images/demo-git.png)
+
 ## 対応図式
 
 **19 種の Mermaid 図式をネイティブ変換:**
@@ -29,7 +90,13 @@ flowchart / graph · erDiagram · sequenceDiagram · stateDiagram(-v2) · classD
 
 ## クイックスタート (CLI)
 
-Node.js ≥ 18 が必要です。
+Node.js ≥ 18 が必要です。最速は npx:
+
+```bash
+npx mermaid2drawio diagram.mmd     # → diagram.drawio
+```
+
+またはソースから:
 
 ```bash
 git clone https://github.com/mmzz164/mermaid-to-drawio.git

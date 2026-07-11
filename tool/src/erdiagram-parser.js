@@ -10,10 +10,14 @@
  *       Entity {
  *         type name [PK|FK|UK] "optional comment"
  *       }
+ *   - Entity aliases (mermaid v11): `p[Person]` / `a["Customer Account"]`
+ *     — relations reference the id, the bracket text is displayed.
  */
 
 // Allow dot in entity identifiers, e.g. `pkg.Module`.
 const ID_RE = "[A-Za-z_][A-Za-z0-9_\\-\\.]*";
+// An entity token: id with an optional [alias] / ["quoted alias"] suffix.
+const ENTITY_RE = `(${ID_RE})(?:\\[(?:"([^"]*)"|([^\\]"]*))\\])?`;
 
 const LEFT_CARDS = new Set(["||", "|o", "}o", "}|", "o|"]);
 const RIGHT_CARDS = new Set(["||", "o|", "o{", "|{", "|o"]);
@@ -67,7 +71,7 @@ function arrowEndForCard(card) {
  * Parse an erDiagram mermaid source.
  * @param {string} source
  * @returns {{
- *   entities: Map<string, { name: string, attributes: Array<{type:string,name:string,keys:string[],comment:string|null}> }>,
+ *   entities: Map<string, { name: string, label: string, attributes: Array<{type:string,name:string,keys:string[],comment:string|null}> }>,
  *   relationships: Array<{from:string,to:string,leftCard:string,rightCard:string,identifying:boolean,label:string|null}>,
  *   warnings: string[],
  * }}
@@ -115,21 +119,27 @@ export function parseErDiagram(source) {
       continue;
     }
 
-    // Entity-only declaration: `EntityName {`
-    const blockOpen = line.match(new RegExp(`^(${ID_RE})\\s*\\{\\s*$`));
+    // Entity-only declaration: `EntityName {` (optionally `id[Alias] {`)
+    const blockOpen = line.match(new RegExp(`^${ENTITY_RE}\\s*\\{\\s*$`));
     if (blockOpen) {
       inBlock = blockOpen[1];
-      ensureEntity(entities, inBlock);
+      ensureEntity(entities, inBlock, blockOpen[2] ?? blockOpen[3]);
+      continue;
+    }
+    // Bare alias declaration: `id[Alias]` on its own line
+    const aliasOnly = line.match(new RegExp(`^${ENTITY_RE}\\s*$`));
+    if (aliasOnly && (aliasOnly[2] !== undefined || aliasOnly[3] !== undefined)) {
+      ensureEntity(entities, aliasOnly[1], aliasOnly[2] ?? aliasOnly[3]);
       continue;
     }
     // Inline attribute block: `EntityName { type name }` on one line
     const inlineBlock = line.match(
-      new RegExp(`^(${ID_RE})\\s*\\{\\s*(.+?)\\s*\\}\\s*$`)
+      new RegExp(`^${ENTITY_RE}\\s*\\{\\s*(.+?)\\s*\\}\\s*$`)
     );
     if (inlineBlock) {
       const name = inlineBlock[1];
-      ensureEntity(entities, name);
-      const inner = inlineBlock[2];
+      ensureEntity(entities, name, inlineBlock[2] ?? inlineBlock[3]);
+      const inner = inlineBlock[4];
       // Split by ; or newline-like separator
       const parts = inner.split(/[;,]\s*/).filter(Boolean);
       for (const p of parts) {
@@ -143,8 +153,8 @@ export function parseErDiagram(source) {
     //   EntityA <leftCard><line><rightCard> EntityB : "label"
     const rel = parseRelationship(line);
     if (rel) {
-      ensureEntity(entities, rel.from);
-      ensureEntity(entities, rel.to);
+      ensureEntity(entities, rel.from, rel.fromLabel);
+      ensureEntity(entities, rel.to, rel.toLabel);
       relationships.push(rel);
       continue;
     }
@@ -154,9 +164,12 @@ export function parseErDiagram(source) {
   return { entities, relationships, warnings };
 }
 
-function ensureEntity(entities, name) {
+function ensureEntity(entities, name, label = undefined) {
   if (!entities.has(name)) {
-    entities.set(name, { name, attributes: [] });
+    entities.set(name, { name, label: label ?? name, attributes: [] });
+  } else if (label !== undefined) {
+    const e = entities.get(name);
+    if (e.label === e.name) e.label = label;
   }
   return entities.get(name);
 }
@@ -182,28 +195,30 @@ function parseAttribute(s) {
 
 function parseRelationship(s) {
   // Cardinality tokens are 2 chars each. Connector is `--` or `..`.
-  // We allow optional `: label` (label may be quoted).
+  // We allow optional `: label` (label may be quoted). Either entity may
+  // carry an `[alias]` display label (mermaid v11).
   const m = s.match(
     new RegExp(
-      "^(" +
-        ID_RE +
-        ")\\s+" +
+      "^" +
+        ENTITY_RE +
+        "\\s+" +
         "(\\|\\||\\|o|o\\||\\}o|\\}\\|)" +     // left cardinality
         "(--|\\.\\.)" +                          // line type
         "(\\|\\||o\\||\\|o|o\\{|\\|\\{)" +    // right cardinality
-        "\\s+(" +
-        ID_RE +
-        ")" +
+        "\\s+" +
+        ENTITY_RE +
         "(?:\\s*:\\s*(.+))?$"
     )
   );
   if (!m) return null;
-  const [, from, leftCard, lineType, rightCard, to, labelRaw] = m;
+  const [, from, fromQ, fromRaw, leftCard, lineType, rightCard, to, toQ, toRaw, labelRaw] = m;
   if (!LEFT_CARDS.has(leftCard)) return null;
   if (!RIGHT_CARDS.has(rightCard)) return null;
   return {
     from,
     to,
+    fromLabel: fromQ ?? fromRaw,
+    toLabel: toQ ?? toRaw,
     leftCard,
     rightCard,
     identifying: lineType === "--",

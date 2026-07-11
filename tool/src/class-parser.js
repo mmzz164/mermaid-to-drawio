@@ -35,6 +35,14 @@
  *
  *   - `direction LR/TB/...`
  *
+ *   - Namespaces (grouping frames):
+ *       namespace BaseShapes {
+ *         class Triangle
+ *         class Rectangle { double width }
+ *       }
+ *     Classes declared inside belong to the namespace; relations are written
+ *     outside the block (mermaid's rule) and may cross namespaces.
+ *
  * Anything else is recorded in `warnings` and skipped.
  */
 
@@ -107,7 +115,8 @@ function classifyMember(raw) {
  * @param {string} source
  * @returns {{
  *   direction: string,
- *   classes: Map<string, {id:string,label:string,stereotype:string|null,attributes:string[],methods:string[]}>,
+ *   classes: Map<string, {id:string,label:string,stereotype:string|null,attributes:string[],methods:string[],namespace:string|null}>,
+ *   namespaces: Array<{name:string,classes:string[]}>,
  *   relations: Array<{from:string,to:string,kind:string,fromCard:string|null,toCard:string|null,label:string|null,dashed:boolean,startArrow:string,endArrow:string}>,
  *   notes: Array<{target:string|null,text:string}>,
  *   warnings: string[],
@@ -116,10 +125,12 @@ function classifyMember(raw) {
 export function parseClassDiagram(source) {
   const lines = source.split(/\r?\n/);
   const classes = new Map();
+  const namespaces = [];
   const relations = [];
   const notes = [];
   const warnings = [];
   let direction = "TB";
+  let currentNamespace = null; // {name, classes: []}
 
   function ensureClass(id, label = null) {
     const key = id;
@@ -130,7 +141,13 @@ export function parseClassDiagram(source) {
         stereotype: null,
         attributes: [],
         methods: [],
+        namespace: null,
       });
+      // Declaring a class inside a `namespace { ... }` block assigns it.
+      if (currentNamespace) {
+        classes.get(key).namespace = currentNamespace.name;
+        currentNamespace.classes.push(key);
+      }
     } else if (label) {
       const c = classes.get(key);
       if (c.label === c.id) c.label = label;
@@ -176,6 +193,25 @@ export function parseClassDiagram(source) {
         continue;
       }
       addMember(bodyOf, line);
+      continue;
+    }
+
+    // `namespace Name { ... }` — a grouping frame around class declarations.
+    const nsOpen = line.match(/^namespace\s+([A-Za-z_][A-Za-z0-9_\-\.]*)\s*\{\s*$/i);
+    if (nsOpen) {
+      if (currentNamespace) {
+        warnings.push(`Line ${lineNo}: nested namespaces are not supported`);
+      } else {
+        currentNamespace = { name: nsOpen[1], classes: [] };
+        namespaces.push(currentNamespace);
+      }
+      continue;
+    }
+    // A bare `}` outside a class body closes the namespace block (class
+    // bodies consume their own `}` in the bodyOf branch above).
+    if (line === "}") {
+      if (currentNamespace) currentNamespace = null;
+      else warnings.push(`Line ${lineNo}: unexpected '}'`);
       continue;
     }
 
@@ -272,7 +308,7 @@ export function parseClassDiagram(source) {
     warnings.push(`Line ${lineNo}: could not parse: ${line}`);
   }
 
-  return { direction, classes, relations, notes, warnings };
+  return { direction, classes, namespaces, relations, notes, warnings };
 }
 
 /**

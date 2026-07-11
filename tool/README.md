@@ -20,7 +20,14 @@ Markdown input (a `.md` file containing ```` ```mermaid ```` fences) produces a 
 
 ## Installation
 
-`@mermaid-js/mermaid-cli` is an **optional dependency**. For native mode only, the lightweight install is enough (`node_modules` ≈ 2 MB):
+From npm (recommended):
+
+```bash
+npx mermaid2drawio diagram.mmd          # run without installing
+npm install -g mermaid2drawio           # or install the CLI globally
+```
+
+`@mermaid-js/mermaid-cli` is an **optional dependency**. For native mode only, a lightweight install from source is enough (`node_modules` ≈ 2 MB):
 
 ```bash
 cd mermaid2drawio
@@ -88,6 +95,7 @@ Page naming for Markdown input: each block's YAML front-matter `title:` > the ne
 - Subgraphs: `subgraph Id["Display Name"] ... end` (nested; inner layout optimized independently)
 
 **erDiagram**
+- Entity aliases (mermaid v11): `p[Person]` / `a["Customer Account"]` — relations reference the id, the bracket text is displayed
 - Relationships: `EntityA ||--o{ EntityB : "label"` etc.
   - Left cardinality: `||` / `|o` / `}o` / `}|` / `o|`
   - Line: `--` (solid / identifying) or `..` (dashed / non-identifying)
@@ -121,9 +129,11 @@ Page naming for Markdown input: each block's YAML front-matter `title:` > the ne
 - Transitions `A --> B : trigger / action`; state descriptions `X : description`
 - Single-line `note left of X : text` and multi-line `note left of X` ... `end note`
 - `direction LR/TB/BT/RL` at the top level and per composite
+- Concurrency: a `--` line inside a composite splits it into parallel regions, stacked vertically with dashed dividers (mermaid's layout)
 
 **classDiagram**
 - `class Foo`, `class Foo { ... }`, generics `Foo~T~`
+- `namespace Name { class A ... }` grouping frames (classes are laid out inside the frame; relations may cross namespaces)
 - Members with `+ - # ~` visibility (parentheses distinguish methods); stereotypes like `<<interface>>` / `<<abstract>>` are kept
 - Relations: inheritance `<|--`, realization `..|>`, composition `*--`, aggregation `o--`, association `-->` `<--` `--`, dependency `..>` `<..`, links `..` — drawn with the standard UML arrowheads and line styles
 - Cardinalities like `"1"` / `"many"` placed as end labels

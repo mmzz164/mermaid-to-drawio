@@ -14,3 +14,9 @@ classDiagram
   Animal <|-- Dog
   Owner "1" o-- "many" Dog : 飼う
   note for Dog "良い犬"
+  namespace Pets {
+    class Cat {
+      +meow() void
+    }
+  }
+  Owner~T~ o-- Cat
