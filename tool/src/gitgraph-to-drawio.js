@@ -183,7 +183,7 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
   model.branches.forEach((b, i) => {
     const y = MARGIN + i * PITCH_Y + PITCH_Y / 2;
     cells.push(
-      `<mxCell id="gg-guide-${i}" value="" style="endArrow=none;html=1;dashed=1;dashPattern=1 3;strokeWidth=1;strokeColor=#cccccc;" edge="1" parent="1">` +
+      `<mxCell id="gg-guide-${i}" value="" style="endArrow=none;html=1;dashed=1;dashPattern=4 4;strokeWidth=1.5;strokeColor=#9e9e9e;" edge="1" parent="1">` +
         `<mxGeometry relative="1" as="geometry">` +
         `<mxPoint x="${round(x0)}" y="${round(y)}" as="sourcePoint" />` +
         `<mxPoint x="${round(xEnd)}" y="${round(y)}" as="targetPoint" />` +
