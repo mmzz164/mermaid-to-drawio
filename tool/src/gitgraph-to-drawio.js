@@ -173,25 +173,44 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
     );
   });
 
-  // Full-width lane lines: mermaid draws every branch line across the whole
-  // chart, so lanes read as continuous even where a branch has few commits.
-  const xEnd = x0 + model.commits.length * PITCH_X;
+  // First commit of each branch — used to find fork points.
+  const firstOfBranch = new Map();
+  for (const c of model.commits) if (!firstOfBranch.has(c.branch)) firstOfBranch.set(c.branch, c);
+
+  // Per-branch lane lines span only the branch's ACTIVE range: from its fork
+  // point (the parent commit it branched off) to its last commit or the merge
+  // that closes it. Mermaid draws the coloured branch line over that interval,
+  // not across the whole chart — a full-width line wrongly implies the branch
+  // existed before it was created and after it was merged.
   model.branches.forEach((b, i) => {
+    const onB = model.commits.filter((c) => c.branch === b.name);
+    if (onB.length === 0) return;
+    const first = onB[0];
+    const last = onB[onB.length - 1];
+    const forkParent = first.parents[0] ? byId.get(first.parents[0]) : null;
+    const isBase = !forkParent || forkParent.branch === b.name;
+    let startX = isBase ? cx(first) : cx(forkParent);
+    let endX = cx(last);
+    for (const m of model.commits) {
+      if (m.type === "MERGE" && byId.get(m.parents[1])?.branch === b.name) endX = Math.max(endX, cx(m));
+    }
     const y = MARGIN + i * PITCH_Y + PITCH_Y / 2;
     cells.push(
       `<mxCell id="gg-lane-${i}" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=${laneColor(b.name)};" edge="1" parent="1">` +
         `<mxGeometry relative="1" as="geometry">` +
-        `<mxPoint x="${round(x0)}" y="${round(y)}" as="sourcePoint" />` +
-        `<mxPoint x="${round(xEnd)}" y="${round(y)}" as="targetPoint" />` +
+        `<mxPoint x="${round(startX)}" y="${round(y)}" as="sourcePoint" />` +
+        `<mxPoint x="${round(endX)}" y="${round(y)}" as="targetPoint" />` +
         `</mxGeometry>` +
         `</mxCell>`
     );
   });
 
-  // Parent edges next (still behind dots). Cross-lane edges bend at the child's x.
+  // Parent edges next (still behind dots). A branch FORK drops at the parent's
+  // x then runs along the child lane (like mermaid); a MERGE/other cross-lane
+  // edge runs along the parent lane then turns at the child's x.
   let ei = 0;
   for (const c of model.commits) {
-    for (const pid of c.parents) {
+    for (const [pi, pid] of c.parents.entries()) {
       const p = byId.get(pid);
       if (!p) continue;
       const x1 = cx(p);
@@ -199,8 +218,20 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
       const x2 = cx(c);
       const y2 = cy(c);
       const dashed = c.type === "CHERRY_PICK" && pid === c.parents[1] ? "dashed=1;" : "";
-      const color = laneColor(y1 === y2 ? c.branch : p.branch);
-      const bend = y1 === y2 ? "" : `<Array as="points"><mxPoint x="${round(x2)}" y="${round(y1)}" /></Array>`;
+      const isFork = pi === 0 && p.branch !== c.branch && firstOfBranch.get(c.branch)?.id === c.id;
+      let bend = "";
+      let color;
+      if (y1 === y2) {
+        color = laneColor(c.branch);
+      } else if (isFork) {
+        // Drop straight down at the parent, then run right on the new lane.
+        bend = `<Array as="points"><mxPoint x="${round(x1)}" y="${round(y2)}" /></Array>`;
+        color = laneColor(c.branch);
+      } else {
+        // Run along the parent lane, then turn up/down at the child's x.
+        bend = `<Array as="points"><mxPoint x="${round(x2)}" y="${round(y1)}" /></Array>`;
+        color = laneColor(p.branch);
+      }
       cells.push(
         `<mxCell id="gg-e-${ei++}" value="" style="endArrow=none;html=1;rounded=1;strokeWidth=2;strokeColor=${color};${dashed}" edge="1" parent="1">` +
           `<mxGeometry relative="1" as="geometry">` +

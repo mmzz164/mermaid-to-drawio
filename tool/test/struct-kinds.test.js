@@ -172,21 +172,25 @@ test("convertMermaidToDrawio routes all new kinds natively", async () => {
   }
 });
 
-test("gitGraph: every branch gets a full-width lane line", () => {
+test("gitGraph: a branch lane line is bounded to its active range, not full-width", () => {
   const { xml } = gitGraphToDrawio(`gitGraph
   commit id: "a"
+  commit id: "a2"
   branch dev
   commit id: "b"
   checkout main
   commit id: "c"
-  branch hotfix
-  commit id: "d"
 `);
-  assert.equal((xml.match(/gg-lane-/g) || []).length, 3);
-  // The hotfix lane spans at least as far right as the last commit's dot.
-  const lane = xml.match(/id="gg-lane-2".*?<mxPoint x="(\d+)" y="\d+" as="targetPoint"/s);
-  const lastDot = xml.match(/id="gg-c-3".*?<mxGeometry x="(\d+)"/s);
-  assert.ok(+lane[1] >= +lastDot[1], "lane extends past the last commit");
+  const laneSpan = (i) => {
+    const m = xml.match(new RegExp(`id="gg-lane-${i}"[\\s\\S]*?<mxPoint x="(\\d+)"[^>]*as="sourcePoint"[^>]*/>\\s*<mxPoint x="(\\d+)"[^>]*as="targetPoint"`));
+    return m ? [+m[1], +m[2]] : null;
+  };
+  const main = laneSpan(0);
+  const dev = laneSpan(1); // dev forks from a2 and is never merged
+  // dev starts at its fork point (a2), not at the chart's left edge (main's start = a).
+  assert.ok(dev[0] > main[0], `dev starts right of main (dev ${dev[0]} vs main ${main[0]})`);
+  // Unmerged dev ends around its last commit (b), before main's end (c).
+  assert.ok(dev[1] < main[1], `unmerged dev ends before main (dev ${dev[1]} vs main ${main[1]})`);
 });
 
 test("C4: SystemDb type annotation says System Db", () => {
