@@ -64,7 +64,7 @@ sequenceDiagram
 ```mermaid
 gitGraph
   commit id: "init"
-  commit tag: "v0.1"
+  commit id: "setup" tag: "v0.1"
   branch develop
   commit id: "feat-api"
   commit id: "feat-ui"
