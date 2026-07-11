@@ -48,8 +48,12 @@
 
 const DIRECTIONS = new Set(["TB", "TD", "BT", "LR", "RL"]);
 
-// Allow generics `Foo~T~`, plus the usual ID characters.
-const CLASS_ID_RE = "[A-Za-z_][A-Za-z0-9_\\-\\.]*(?:~[^~]+~)?";
+// Allow generics `Foo~T~`, plus the usual ID characters. Class/namespace
+// names may be CJK/kana/full-width (e.g. `class 動物`), not just ASCII —
+// BMP literal ranges, no /u flag, ASCII behavior unchanged. Without this,
+// bare-CJK class names produced a blank diagram.
+const CJK = "\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF";
+const CLASS_ID_RE = `[A-Za-z_${CJK}][A-Za-z0-9_\\-\\.${CJK}]*(?:~[^~]+~)?`;
 
 const RELATION_TOKEN_RE = /(<\|--|--\|>|\*--|--\*|o--|--o|<--|-->|--|\.\.>|<\.\.|\.\.\|>|<\|\.\.|\.\.|-->)/;
 
@@ -210,7 +214,7 @@ export function parseClassDiagram(source) {
     }
 
     // `namespace Name { ... }` — a grouping frame around class declarations.
-    const nsOpen = line.match(/^namespace\s+([A-Za-z_][A-Za-z0-9_\-\.]*)\s*\{\s*$/i);
+    const nsOpen = line.match(new RegExp(`^namespace\\s+(${CLASS_ID_RE})\\s*\\{\\s*$`, "i"));
     if (nsOpen) {
       if (currentNamespace) {
         warnings.push(`Line ${lineNo}: nested namespaces are not supported`);

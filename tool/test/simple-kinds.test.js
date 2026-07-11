@@ -272,3 +272,16 @@ test("quadrant: quadrant labels sit at the top of each cell", () => {
   assert.equal(quadStyles.length, 4);
   for (const s of quadStyles) assert.match(s, /verticalAlign=top/);
 });
+
+test("quadrant: point labels sit below their dots (clear of quadrant titles)", () => {
+  const { xml } = quadrantToDrawio(`quadrantChart
+  quadrant-1 One
+  quadrant-2 Two
+  quadrant-3 Three
+  quadrant-4 Four
+  P: [0.2, 0.95]`);
+  const dot = xml.match(/id="q-pt-0"[^>]*>\s*<mxGeometry x="[\d.]+" y="([\d.]+)"/);
+  const lbl = xml.match(/id="q-ptl-0"[^>]*>\s*<mxGeometry x="[\d.-]+" y="([\d.]+)"/);
+  assert.ok(dot && lbl);
+  assert.ok(Number(lbl[1]) > Number(dot[1]), "label y is below the dot y");
+});

@@ -215,3 +215,18 @@ test("C4: a rel crossing another element bows around it; adjacent rels stay dire
   assert.match(bow, /exitX=1/);
   assert.equal((bow.match(/<mxPoint /g) || []).length, 2);
 });
+
+test("gitGraph: merge/cherry-pick auto-ids are not printed; explicit ids are", () => {
+  const { xml } = gitGraphToDrawio(`gitGraph
+  commit id: "init"
+  branch dev
+  commit id: "d1"
+  checkout main
+  merge dev
+  cherry-pick id: "d1"
+`);
+  // Explicit ids still shown.
+  assert.match(xml, /value="init"/);
+  // The auto-generated merge id (c1/c2/...) is not printed as an id label.
+  assert.doesNotMatch(xml, /<mxCell id="gg-id-[0-9]+" value="c\d+"/);
+});

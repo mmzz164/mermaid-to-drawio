@@ -28,25 +28,42 @@ function escapeXml(s) {
  * content in each column. Always at least min widths; capped at 60% of
  * the row so the other column never disappears.
  */
+function entityHasKeys(entity) {
+  return entity.attributes.some((a) => a.keys && a.keys.length);
+}
+
+/**
+ * Split a row into type / name / key columns (key column only when the
+ * entity has any keyed attribute), mirroring mermaid's 3-column layout.
+ * Keeping the key marker (PK/FK/UK) in its own narrow column stops long
+ * `name (FK)` strings from wrapping and clipping into the next row.
+ */
 function estimateColumnWidths(entity, totalWidth) {
-  const MIN_COL = 60;
+  const MIN_COL = 50;
   let typeMax = 4; // "type" header heuristic
   let nameMax = 4;
+  let keyMax = 0;
   for (const a of entity.attributes) {
     typeMax = Math.max(typeMax, visualWidth(a.type || ""));
     nameMax = Math.max(nameMax, visualWidth(formatAttrName(a)));
+    if (a.keys && a.keys.length) keyMax = Math.max(keyMax, visualWidth(a.keys.join(",")));
   }
+  const keyW = keyMax ? Math.max(30, Math.round(keyMax * CHAR_PX) + 12) : 0;
   const innerPad = PADDING_X * 2;
-  const innerW = Math.max(MIN_COL * 2, totalWidth - innerPad);
+  const innerW = Math.max(MIN_COL * 2, totalWidth - keyW - innerPad);
   const ratio = typeMax / Math.max(1, typeMax + nameMax);
   let typeW = Math.round(innerW * ratio);
   typeW = Math.max(MIN_COL, Math.min(Math.round(innerW * 0.6), typeW));
-  let nameW = totalWidth - typeW;
+  // Make sure the type column actually fits its widest type name (e.g.
+  // "datetime"/"timestamp"), as long as the name column keeps its minimum.
+  const typeContentW = Math.round(typeMax * CHAR_PX) + 12;
+  typeW = Math.max(typeW, Math.min(typeContentW, totalWidth - keyW - MIN_COL));
+  let nameW = totalWidth - typeW - keyW;
   if (nameW < MIN_COL) {
     nameW = MIN_COL;
-    typeW = totalWidth - nameW;
+    typeW = Math.max(MIN_COL, totalWidth - nameW - keyW);
   }
-  return { typeW, nameW };
+  return { typeW, nameW, keyW };
 }
 
 function estimateEntitySize(entity) {
@@ -69,9 +86,9 @@ function formatAttr(a) {
 }
 
 function formatAttrName(a) {
-  const keyTag = a.keys && a.keys.length ? ` (${a.keys.join(",")})` : "";
+  // Keys go in their own column now; the name column carries name + comment.
   const cmt = a.comment ? ` – ${a.comment}` : "";
-  return `${a.name}${keyTag}${cmt}`;
+  return `${a.name}${cmt}`;
 }
 
 /**
@@ -134,7 +151,8 @@ export function erDiagramToDrawio(mermaidSource, opts = {}) {
     // Dynamically split each row into type/name columns based on the longest
     // content per column. With short types and long names the type column
     // shrinks; with long types and short names it grows (capped at 60%).
-    const { typeW: typeColW } = estimateColumnWidths(entity, Math.round(w));
+    const { typeW: typeColW, keyW: keyColW } = estimateColumnWidths(entity, Math.round(w));
+    const nameColW = w - typeColW - keyColW;
     let rowY = HEADER_H;
     for (const [i, attr] of entity.attributes.entries()) {
       const rowId = `${entId}-row-${i}`;
@@ -145,22 +163,28 @@ export function erDiagramToDrawio(mermaidSource, opts = {}) {
           `<mxGeometry y="${rowY}" width="${round(w)}" height="${ROW_H}" as="geometry" />` +
           `</mxCell>`
       );
-      // Two cells: type, name (+keys)
-      const cell1Style =
+      // Cells: type, name (+comment), and — when present — a key column.
+      const cellStyle =
         "shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;strokeColor=inherit;overflow=hidden;fillColor=none;top=0;left=0;bottom=0;right=0;pointerEvents=1;fontSize=12;align=left;spacingLeft=6;";
-      const cell2Style = cell1Style;
-      const typeText = escapeXml(attr.type);
-      const nameText = escapeXml(formatAttrName(attr));
+      const keyCellStyle = cellStyle.replace("align=left;spacingLeft=6;", "align=center;");
       cells.push(
-        `<mxCell id="${escapeXml(rowId)}-c1" value="${typeText}" style="${cell1Style}" vertex="1" parent="${escapeXml(rowId)}">` +
+        `<mxCell id="${escapeXml(rowId)}-c1" value="${escapeXml(attr.type)}" style="${cellStyle}" vertex="1" parent="${escapeXml(rowId)}">` +
           `<mxGeometry width="${typeColW}" height="${ROW_H}" as="geometry" />` +
           `</mxCell>`
       );
       cells.push(
-        `<mxCell id="${escapeXml(rowId)}-c2" value="${nameText}" style="${cell2Style}" vertex="1" parent="${escapeXml(rowId)}">` +
-          `<mxGeometry x="${typeColW}" width="${w - typeColW}" height="${ROW_H}" as="geometry" />` +
+        `<mxCell id="${escapeXml(rowId)}-c2" value="${escapeXml(formatAttrName(attr))}" style="${cellStyle}" vertex="1" parent="${escapeXml(rowId)}">` +
+          `<mxGeometry x="${typeColW}" width="${round(nameColW)}" height="${ROW_H}" as="geometry" />` +
           `</mxCell>`
       );
+      if (keyColW > 0) {
+        const keyText = attr.keys && attr.keys.length ? escapeXml(attr.keys.join(",")) : "";
+        cells.push(
+          `<mxCell id="${escapeXml(rowId)}-c3" value="${keyText}" style="${keyCellStyle}" vertex="1" parent="${escapeXml(rowId)}">` +
+            `<mxGeometry x="${round(typeColW + nameColW)}" width="${round(keyColW)}" height="${ROW_H}" as="geometry" />` +
+            `</mxCell>`
+        );
+      }
       rowY += ROW_H;
     }
   }

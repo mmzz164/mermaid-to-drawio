@@ -193,3 +193,18 @@ test("er renderer: alias labels are displayed, ids stay as cell ids", () => {
   assert.match(xml, /id="o" value="注文"/);
   assert.match(xml, /source="p" target="o"/);
 });
+
+test("er renderer: key markers render in a dedicated 3rd column (no wrap/clip)", () => {
+  const { xml } = erDiagramToDrawio(`erDiagram
+  ORDER {
+    int id PK
+    int customer_id FK
+    decimal total
+  }`);
+  // Each attribute row has three cells: type, name, key.
+  assert.ok((xml.match(/ORDER-row-0-c3/g) || []).length >= 1, "key column cell present");
+  // The name cell no longer carries the (FK) suffix.
+  assert.doesNotMatch(xml, /customer_id \(FK\)/);
+  // The key marker text FK appears (in its own cell).
+  assert.match(xml, /value="FK"/);
+});

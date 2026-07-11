@@ -47,7 +47,11 @@ const NODE_SHAPE_PATTERNS = [
 ];
 
 // Allow dot in node identifiers, e.g. `pkg.Module` or `svc.api.v1`.
-const ID_RE = "[A-Za-z_][A-Za-z0-9_\\-\\.]*";
+// Node identifiers may be CJK/kana/full-width, not just ASCII — e.g.
+// `開始 --> 処理`. BMP literal ranges, so no /u flag is needed and ASCII
+// behavior is unchanged. Without this, bare-CJK nodes produced a blank chart.
+const CJK = "\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF";
+const ID_RE = `[A-Za-z_${CJK}][A-Za-z0-9_\\-\\.${CJK}]*`;
 
 /**
  * Tokenize a single non-empty, non-comment line into useful chunks.
@@ -434,13 +438,28 @@ export function parseMermaidFlowchart(source) {
       continue;
     }
 
-    const sgMatch = line.match(
-      new RegExp(`^subgraph\\s+(${ID_RE})\\s*(?:\\[(.+)\\])?\\s*$`)
-    );
+    // Subgraph forms: `subgraph`, `subgraph Title`, `subgraph id[Title]`,
+    // `subgraph id["Title"]`. The title may contain CJK or spaces, so it is
+    // NOT constrained to ID_RE — that constraint used to drop `subgraph 設計`
+    // entirely (title leaked as a node, children lost their frame).
+    const sgMatch = line.match(/^subgraph\b\s*(.*)$/);
     if (sgMatch) {
-      const id = sgMatch[1];
-      const labelRaw = sgMatch[2];
-      const label = labelRaw ? unquoteLabel(labelRaw) : id;
+      const rest = sgMatch[1].trim();
+      let id;
+      let label;
+      if (rest === "") {
+        id = `__sg${subgraphs.length + 1}`;
+        label = "";
+      } else {
+        const bracket = rest.match(/^(.+?)\s*\[(.+)\]$/);
+        if (bracket) {
+          id = bracket[1].trim();
+          label = unquoteLabel(bracket[2].trim());
+        } else {
+          id = unquoteLabel(rest);
+          label = id;
+        }
+      }
       const parent =
         subgraphStack.length > 0
           ? subgraphStack[subgraphStack.length - 1]

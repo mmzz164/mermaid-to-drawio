@@ -15,7 +15,11 @@
  */
 
 // Allow dot in entity identifiers, e.g. `pkg.Module`.
-const ID_RE = "[A-Za-z_][A-Za-z0-9_\\-\\.]*";
+// Entity/attribute identifiers may be CJK/kana/full-width (e.g. `顧客 ||--o{ 注文`),
+// not just ASCII. BMP literal ranges keep ASCII behavior unchanged and need no
+// /u flag. Without this, bare-CJK entities produced a blank diagram.
+const CJK = "\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF";
+const ID_RE = `[A-Za-z_${CJK}][A-Za-z0-9_\\-\\.${CJK}]*`;
 // An entity token: id with an optional [alias] / ["quoted alias"] suffix.
 const ENTITY_RE = `(${ID_RE})(?:\\[(?:"([^"]*)"|([^\\]"]*))\\])?`;
 

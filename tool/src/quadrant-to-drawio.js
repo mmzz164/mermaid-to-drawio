@@ -138,9 +138,11 @@ export function quadrantToDrawio(mermaidSource, opts = {}) {
         `</mxCell>`
     );
     cells.push(
+      // Label below the dot, like mermaid — keeps high-y points clear of the
+      // quadrant title along the top edge.
       `<mxCell id="q-ptl-${i}" value="${escapeXml(p.label)}" ` +
         `style="text;html=1;align=center;verticalAlign=middle;fontSize=11;" vertex="1" parent="1">` +
-        `<mxGeometry x="${round(px - 60)}" y="${round(py - 26)}" width="120" height="16" as="geometry" />` +
+        `<mxGeometry x="${round(px - 60)}" y="${round(py + 8)}" width="120" height="16" as="geometry" />` +
         `</mxCell>`
     );
   });

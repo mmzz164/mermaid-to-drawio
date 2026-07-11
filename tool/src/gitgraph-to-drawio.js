@@ -46,6 +46,7 @@ export function parseGitGraph(source) {
   function addCommit({ id, tag, type, parents, branch, label }) {
     const c = {
       id: id || `c${autoId++}`,
+      autoId: !id, // no explicit `id:` was given
       branch,
       seq: seq++,
       tag: tag || null,
@@ -233,12 +234,18 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
         `<mxGeometry x="${round(x - size / 2)}" y="${round(y - size / 2)}" width="${size}" height="${size}" as="geometry" />` +
         `</mxCell>`
     );
-    cells.push(
-      `<mxCell id="gg-id-${i}" value="${escapeXml(c.id)}" ` +
-        `style="text;html=1;align=center;verticalAlign=top;fontSize=9;fontColor=#666666;" vertex="1" parent="1">` +
-        `<mxGeometry x="${round(x - PITCH_X / 2)}" y="${round(y + size / 2 + 2)}" width="${PITCH_X}" height="14" as="geometry" />` +
-        `</mxCell>`
-    );
+    // Merge/cherry-pick commits get auto-generated ids that mermaid doesn't
+    // print; show a commit-id label only when it carries real information
+    // (an explicit id, or a normal/highlight commit).
+    const showId = !(c.autoId && (c.type === "MERGE" || c.type === "CHERRY_PICK"));
+    if (showId) {
+      cells.push(
+        `<mxCell id="gg-id-${i}" value="${escapeXml(c.id)}" ` +
+          `style="text;html=1;align=center;verticalAlign=top;fontSize=9;fontColor=#666666;" vertex="1" parent="1">` +
+          `<mxGeometry x="${round(x - PITCH_X / 2)}" y="${round(y + size / 2 + 2)}" width="${PITCH_X}" height="14" as="geometry" />` +
+          `</mxCell>`
+      );
+    }
     if (c.tag) {
       const tw = Math.max(30, visualWidth(c.tag) * 6.5 + 12);
       cells.push(

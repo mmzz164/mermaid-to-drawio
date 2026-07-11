@@ -24,7 +24,12 @@
 
 const DIRECTIONS = new Set(["TB", "TD", "BT", "LR", "RL"]);
 
-const ID_RE = "[A-Za-z_][A-Za-z0-9_\\-\\.]*";
+// Identifier characters: ASCII word chars plus CJK / kana / full-width ranges
+// (BMP literals, so no /u flag is needed and ASCII behavior is unchanged).
+// Without the CJK ranges, `state 稼働 { ... }` and `待機 --> 稼働` failed to
+// parse and produced an entirely blank diagram.
+const CJK = "\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF";
+const ID_RE = `[A-Za-z_${CJK}][A-Za-z0-9_\\-\\.${CJK}]*`;
 
 function stripComments(line) {
   return line.replace(/%%.*$/, "").trimEnd();

@@ -129,9 +129,34 @@ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18924/view-flowchart.htm
 - サブエージェントの報告には必ず「ref は X、ours は Y」の対で書かせる。
   対になっていない指摘は再確認してから修正に入る(誤検知が混ざる)
 
-## 過去の実績(2026-07-11、全 19 図式)
+## テストが緑でも QA が必要な理由(最重要の教訓)
 
-検出 7 件: sequence 矢じり不可視(`endSize=0`)/ class の `Owner~T~` 二重化・`~T~` 表示 /
-kanban インライン `@{}` 未対応 / state 終端 `[*]` の複数描画 / quadrant ラベルとデータ点の重なり /
-C4 エッジラベルがノードに重なる(→ 交差検出 + 右迂回ルーティングで解決)/ C4 `[System Db]` 注記。
-コミット `5d533ba` を参照。
+golden fixtures は**我々が書いた素直な図**なので、潜在バグは**より複雑・実戦的な入力**に潜む。
+第 2 ラウンド(2026-07-11、難易度の高い 12 図式を新規作成)で、golden では一度も踏まなかった
+**「ASCII 限定 ID 正規表現が CJK 識別子で全滅」**という系統的バグを発見した:
+
+- `flowchart / stateDiagram / classDiagram / sequenceDiagram / erDiagram` の各パーサが
+  `[A-Za-z_][A-Za-z0-9_...]*` の ID 正規表現を使っており、**bare CJK 識別子**
+  (`開始 --> 処理`、`state 稼働 { ... }`、`class 動物`、`顧客->>店員`、`顧客 ||--o{ 注文`)を
+  1 つもパースできず、**警告だけ出して真っ白な図**を返していた。日本語ユーザには致命的。
+- golden が ASCII 識別子(Idle/Running、CUSTOMER/ORDER)だったため完全に見逃されていた。
+- 修正: 各パーサの ID_RE に BMP のリテラル CJK 範囲を追加(`぀-ヿ` 等、`/u` フラグ不要で
+  ASCII 挙動不変)。`test/cjk-identifiers.test.js` で回帰を固定。
+- 同系: `subgraph 設計`(CJK タイトル)も subgraph 検出正規表現の ID 制約で枠が消え、
+  タイトルがノードとして漏れていた(mermaid-parser.js)。
+
+**教訓**: QA 図式は golden の焼き直しにせず、(1) bare CJK 識別子、(2) 深いネスト・並行、
+(3) 多数の要素・エッジ交差、(4) 全 fragment 種(alt/opt/loop/par)——を必ず含めて新規に作る。
+
+## 過去の実績
+
+**第 1 ラウンド(全 19 golden 図式)** — 検出 7 件: sequence 矢じり不可視(`endSize=0`)/ class の
+`Owner~T~` 二重化・`~T~` 表示 / kanban インライン `@{}` 未対応 / state 終端 `[*]` の複数描画 /
+quadrant ラベルとデータ点の重なり / C4 エッジラベルがノードに重なる(交差検出 + 右迂回ルーティング)/
+C4 `[System Db]` 注記。コミット `5d533ba`。
+
+**第 2 ラウンド(難易度の高い 12 図式を新規作成)** — 検出・修正:
+CJK 識別子で 5 パーサ全滅(上記)/ CJK subgraph タイトルで枠消失 /
+er の PK/FK/UK が名前列に押し込まれ折り返しクリップ(→ 本家同様の型/名前/キーの 3 列化)/
+quadrant の点ラベルが上配置で象限タイトルと衝突(→ 本家同様に点の下へ)/
+gitGraph がマージ・cherry-pick の自動採番 id を表示(→ 本家同様に非表示、明示 id は表示)。
