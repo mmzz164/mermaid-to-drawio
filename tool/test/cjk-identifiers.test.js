@@ -6,6 +6,7 @@ import { parseSequenceDiagram } from "../src/sequence-parser.js";
 import { parseErDiagram } from "../src/erdiagram-parser.js";
 import { parseClassDiagram } from "../src/class-parser.js";
 import { parseStateDiagram } from "../src/state-parser.js";
+import { parseRequirementDiagram } from "../src/requirement-to-drawio.js";
 import { convertMermaidToDrawio } from "../src/index.js";
 
 // Regression: bare CJK identifiers (not just bracketed labels) must parse.
@@ -81,4 +82,41 @@ test("end-to-end: CJK-identifier diagrams emit real cells, not empty models", as
     const cellCount = (xml.match(/<mxCell/g) || []).length;
     assert.ok(cellCount > 2, `expected real cells for: ${src.slice(0, 20)} (got ${cellCount})`);
   }
+});
+
+// --- round-2 broad-sweep follow-ups ---
+
+test("requirement: CJK requirement/element names + relations parse", () => {
+  const m = parseRequirementDiagram(
+    `requirementDiagram
+  requirement 要求1 {
+    id: 1
+    text: "速いこと"
+    risk: high
+  }
+  element 装置 {
+    type: hardware
+  }
+  装置 - satisfies -> 要求1`,
+  );
+  assert.deepEqual(m.warnings, []);
+  assert.equal(m.nodes.length, 2);
+  assert.deepEqual(m.relations[0], { from: "装置", to: "要求1", type: "satisfies" });
+});
+
+test("state: a lone identifier declares a state; a note anchors to it", () => {
+  const m = parseStateDiagram("stateDiagram-v2\n  待機\n  note right of 待機 : アイドル");
+  assert.deepEqual(m.warnings, []);
+  assert.ok(m.states.has("待機"));
+  assert.equal(m.notes.length, 1);
+  assert.equal(m.notes[0].target, "待機");
+});
+
+test("flowchart: style/class directives target CJK node ids", () => {
+  const m = parseMermaidFlowchart(
+    "flowchart LR\n  開始 --> 終了\n  style 開始 fill:#f9f\n  class 終了 hot\n  classDef hot fill:#f96",
+  );
+  assert.deepEqual(m.warnings, []);
+  assert.equal(m.styles["開始"].fill, "#f9f");
+  assert.equal(m.classDefs["hot"].fill, "#f96");
 });

@@ -499,15 +499,16 @@ export function parseMermaidFlowchart(source) {
     // `style ID prop:val,...` — the body MUST start with `key:value` so that
     // ordinary lines whose first token happens to be a literal `style` (used
     // as a node id) are not silently swallowed.
+    // Node ids in style/class directives may be CJK too (ID_RE covers CJK).
     const styleMatch = line.match(
-      /^style\s+([A-Za-z_][A-Za-z0-9_\-.]*)\s+([A-Za-z\-]+\s*:\s*.+)$/i,
+      new RegExp(`^style\\s+(${ID_RE})\\s+([A-Za-z\\-]+\\s*:\\s*.+)$`, "i"),
     );
     if (styleMatch) {
       styles[styleMatch[1]] = parseCssProps(styleMatch[2]);
       continue;
     }
     const classDefMatch = line.match(
-      /^classDef\s+([A-Za-z_][A-Za-z0-9_\-,\s]*)\s+([A-Za-z\-]+\s*:\s*.+)$/i,
+      new RegExp(`^classDef\\s+(${ID_RE}(?:\\s*,\\s*${ID_RE})*)\\s+([A-Za-z\\-]+\\s*:\\s*.+)$`, "i"),
     );
     if (classDefMatch) {
       const names = classDefMatch[1].split(",");
@@ -519,7 +520,7 @@ export function parseMermaidFlowchart(source) {
     // identifiers separated by commas. Disallows arrow tokens so that real
     // graph statements aren't mistaken for class assignments.
     const classApplyMatch = line.match(
-      /^class\s+([A-Za-z_][A-Za-z0-9_\-.]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_\-.]*)*)\s+([A-Za-z_][A-Za-z0-9_\-]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_\-]*)*)\s*$/i,
+      new RegExp(`^class\\s+(${ID_RE}(?:\\s*,\\s*${ID_RE})*)\\s+(${ID_RE}(?:\\s*,\\s*${ID_RE})*)\\s*$`, "i"),
     );
     if (classApplyMatch) {
       const targets = classApplyMatch[1].split(",").map((s) => s.trim()).filter(Boolean);

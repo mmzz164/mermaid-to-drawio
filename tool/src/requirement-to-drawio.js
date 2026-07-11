@@ -22,6 +22,15 @@ const REL_TYPES = new Set([
   "traces",
 ]);
 
+// Requirement/element names and relation endpoints may be CJK, not just
+// ASCII. BMP literal ranges keep ASCII behavior and need no /u flag. Without
+// this, CJK-named requirements produced a blank diagram.
+const CJK = "\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF";
+const NAME = `[\\w.\\-${CJK}]+`;
+const BLOCK_OPEN_RE = new RegExp(`^(\\w+)\\s+(${NAME})\\s*\\{\\s*$`);
+const REL_FWD_RE = new RegExp(`^(${NAME})\\s*-\\s*(\\w+)\\s*->\\s*(${NAME})$`);
+const REL_BACK_RE = new RegExp(`^(${NAME})\\s*<-\\s*(\\w+)\\s*-\\s*(${NAME})$`);
+
 /**
  * Minimal Mermaid requirementDiagram parser.
  *
@@ -59,7 +68,7 @@ export function parseRequirementDiagram(source) {
       continue;
     }
 
-    if ((m = trimmed.match(/^(\w+)\s+([\w.-]+)\s*\{\s*$/))) {
+    if ((m = trimmed.match(BLOCK_OPEN_RE))) {
       const kind = m[1].toLowerCase();
       if (REQ_TYPES.has(kind) || kind === "element") {
         currentNode = { kind, name: m[2], fields: {} };
@@ -68,14 +77,14 @@ export function parseRequirementDiagram(source) {
       }
     }
     // a - satisfies -> b
-    if ((m = trimmed.match(/^([\w.-]+)\s*-\s*(\w+)\s*->\s*([\w.-]+)$/))) {
+    if ((m = trimmed.match(REL_FWD_RE))) {
       const type = m[2].toLowerCase();
       if (!REL_TYPES.has(type)) warnings.push(`Line ${lineNo}: unknown relation '${m[2]}'`);
       relations.push({ from: m[1], to: m[3], type });
       continue;
     }
     // b <- satisfies - a  (arrow points back to the left operand)
-    if ((m = trimmed.match(/^([\w.-]+)\s*<-\s*(\w+)\s*-\s*([\w.-]+)$/))) {
+    if ((m = trimmed.match(REL_BACK_RE))) {
       const type = m[2].toLowerCase();
       if (!REL_TYPES.has(type)) warnings.push(`Line ${lineNo}: unknown relation '${m[2]}'`);
       relations.push({ from: m[3], to: m[1], type });

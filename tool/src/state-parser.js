@@ -247,6 +247,7 @@ export function parseStateDiagram(source) {
       new RegExp(`^note\\s+(left of|right of)\\s+(${ID_RE})\\s*:\\s*(.+)$`, "i"),
     );
     if (noteSingle) {
+      ensureState(noteSingle[2], parent); // a note can be the state's only mention
       notes.push({
         target: noteSingle[2],
         position: noteSingle[1].toLowerCase(),
@@ -258,6 +259,7 @@ export function parseStateDiagram(source) {
       new RegExp(`^note\\s+(left of|right of)\\s+(${ID_RE})\\s*$`, "i"),
     );
     if (noteMulti) {
+      ensureState(noteMulti[2], parent);
       pendingNote = {
         target: noteMulti[2],
         position: noteMulti[1].toLowerCase(),
@@ -277,6 +279,12 @@ export function parseStateDiagram(source) {
       const from = rawFrom === "[*]" ? ensureState(pseudoId(parent, "start"), parent, "start") : ensureState(rawFrom, parent);
       const to = rawTo === "[*]" ? ensureState(pseudoId(parent, "end"), parent, "end") : ensureState(rawTo, parent);
       transitions.push({ from, to, label });
+      continue;
+    }
+
+    // A lone identifier declares a state (mermaid allows `Idle` on its own line).
+    if (new RegExp(`^${ID_RE}$`).test(line)) {
+      ensureState(line, parent);
       continue;
     }
 
