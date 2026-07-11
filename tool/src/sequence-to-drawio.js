@@ -140,11 +140,25 @@ export function sequenceToDrawio(mermaidSource, opts = {}) {
         y += 18;
         break;
       }
+      case "create":
+        // The created participant's header sits here, above the message that
+        // spawns it; reserve room for the header box.
+        y += HEADER_H + 12;
+        break;
       default:
         break;
     }
   }
   const totalY = y + 20;
+
+  // Where each created/destroyed participant's lifeline begins / ends.
+  const createY = new Map();
+  const destroyY = new Map();
+  for (let i = 0; i < model.steps.length; i++) {
+    const step = model.steps[i];
+    if (step.type === "create") createY.set(step.participant, yStarts[i]);
+    else if (step.type === "destroy") destroyY.set(step.participant, yStarts[i]);
+  }
 
   // Compute activation bars from activate/deactivate steps. Activations may
   // come from explicit `activate X` / `deactivate X` lines or from `+`/`-`
@@ -212,7 +226,10 @@ export function sequenceToDrawio(mermaidSource, opts = {}) {
 
   model.participants.forEach((p, i) => {
     const x = MARGIN_X + i * PITCH;
-    const yHead = MARGIN_Y;
+    // Created participants start mid-diagram at their create point.
+    const cAt = createY.get(p.id);
+    const dAt = destroyY.get(p.id);
+    const yHead = cAt !== undefined ? cAt : MARGIN_Y;
     const style = p.isActor
       ? "shape=umlActor;verticalLabelPosition=bottom;labelPosition=center;verticalAlign=top;html=1;outlineConnect=0;"
       : "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;";
@@ -221,19 +238,31 @@ export function sequenceToDrawio(mermaidSource, opts = {}) {
     const headX = p.isActor ? x + (COL_W - headW) / 2 : x;
     cells.push(
       `<mxCell id="${escapeXml(p.id)}-head" value="${escapeXml(p.label)}" style="${style}" vertex="1" parent="1">` +
-        `<mxGeometry x="${headX}" y="${yHead}" width="${headW}" height="${headH}" as="geometry" />` +
+        `<mxGeometry x="${headX}" y="${round(yHead)}" width="${headW}" height="${headH}" as="geometry" />` +
         `</mxCell>`
     );
-    // Footer (mirror of header)
-    cells.push(
-      `<mxCell id="${escapeXml(p.id)}-foot" value="${escapeXml(p.label)}" style="${style}" vertex="1" parent="1">` +
-        `<mxGeometry x="${headX}" y="${lifelineBottom}" width="${headW}" height="${headH}" as="geometry" />` +
-        `</mxCell>`
-    );
-    // Lifeline (dashed vertical line)
+    // Footer (mirror of header) — omitted for destroyed participants, whose
+    // lifeline instead ends in an ✕ at the destroy point.
+    if (dAt === undefined) {
+      cells.push(
+        `<mxCell id="${escapeXml(p.id)}-foot" value="${escapeXml(p.label)}" style="${style}" vertex="1" parent="1">` +
+          `<mxGeometry x="${headX}" y="${lifelineBottom}" width="${headW}" height="${headH}" as="geometry" />` +
+          `</mxCell>`
+      );
+    }
+    // Lifeline (dashed vertical line): from just below the header to the
+    // destroy point (or the diagram bottom).
     const cx = MARGIN_X + i * PITCH + COL_W / 2;
-    const yLifeTop = MARGIN_Y + HEADER_H;
-    const yLifeBottom = lifelineBottom;
+    const yLifeTop = (cAt !== undefined ? cAt : MARGIN_Y) + HEADER_H;
+    const yLifeBottom = dAt !== undefined ? dAt : lifelineBottom;
+    if (dAt !== undefined) {
+      const s = 14;
+      cells.push(
+        `<mxCell id="${escapeXml(p.id)}-destroy" value="✕" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;fontColor=#B85450;fontStyle=1;" vertex="1" parent="1">` +
+          `<mxGeometry x="${round(cx - s)}" y="${round(yLifeBottom - s)}" width="${2 * s}" height="${2 * s}" as="geometry" />` +
+          `</mxCell>`
+      );
+    }
     cells.push(
       `<mxCell id="${escapeXml(p.id)}-life" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#888888;" edge="1" parent="1">` +
         `<mxGeometry relative="1" as="geometry">` +

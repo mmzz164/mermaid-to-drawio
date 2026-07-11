@@ -169,3 +169,22 @@ test("state: transitions to [*] in one scope share a single final node", () => {
   const starts = [...m.states.values()].filter((s) => s.kind === "start");
   assert.equal(starts.length, 1);
 });
+
+test("state: each concurrent region gets its OWN initial pseudostate", () => {
+  const m = parseStateDiagram(`stateDiagram-v2
+  state Active {
+    [*] --> R1
+    --
+    [*] --> R2
+    --
+    [*] --> R3
+  }`);
+  const starts = [...m.states.values()].filter((s) => s.kind === "start");
+  assert.equal(starts.length, 3, "one start per region, not a shared one");
+  // The three start→region transitions must target R1, R2, R3 distinctly.
+  const targets = m.transitions
+    .filter((t) => t.from.includes("start") && t.to !== "Active")
+    .map((t) => t.to)
+    .sort();
+  assert.deepEqual(targets, ["R1", "R2", "R3"]);
+});

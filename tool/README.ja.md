@@ -108,7 +108,7 @@ Markdown 入力時のページ名は、各ブロックの YAML front matter `tit
 
 **sequenceDiagram**
 - `participant X` / `participant X as Alias` / `actor X`、ID にクオート文字列も可（`participant "User A" as U`）
-- `create participant X` / `create actor X` は通常の宣言として受理（参加者は常に上部に配置）、`destroy X` は静かに無視
+- `create participant X` / `create actor X` は生成位置からライフラインを開始、`destroy X` はライフラインを ✕ で終端（本家準拠）
 - メッセージ: `->`, `-->`, `->>`, `-->>`, `-x`, `--x`, `-)`, `--)`
 - 活性化サフィックス: `A->>+B: msg`（B を活性化）、`B-->>-A: msg`（送信者を非活性化）。
   活性化バーが lifeline 上に矩形で描画される。

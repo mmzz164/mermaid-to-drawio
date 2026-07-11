@@ -368,3 +368,23 @@ test("sequence: message edges keep a visible arrowhead (endSize=0 regression)", 
     assert.doesNotMatch(s, /endSize=0/);
   }
 });
+
+test("sequence: create/destroy — created lifeline starts mid-diagram, destroyed ends in ✕", () => {
+  const { xml } = sequenceToDrawio(`sequenceDiagram
+  A->>B: hello
+  create participant C as Worker
+  B->>C: spawn
+  C-->>B: ready
+  destroy C
+  B->>C: cleanup`);
+  // Worker's header is placed below the top margin (created mid-diagram).
+  const aHead = xml.match(/id="A-head"[\s\S]*?<mxGeometry x="[\d.]+" y="([\d.]+)"/);
+  const cHead = xml.match(/id="C-head"[\s\S]*?<mxGeometry x="[\d.]+" y="([\d.]+)"/);
+  assert.ok(aHead && cHead);
+  assert.ok(Number(cHead[1]) > Number(aHead[1]) + 40, "Worker header is below A's (mid-diagram)");
+  // Destroyed participant gets an ✕ marker and NO footer.
+  assert.match(xml, /id="C-destroy"[^>]*value="✕"/);
+  assert.doesNotMatch(xml, /id="C-foot"/);
+  // Non-destroyed participants keep their footer.
+  assert.match(xml, /id="A-foot"/);
+});

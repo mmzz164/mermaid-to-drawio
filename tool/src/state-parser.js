@@ -77,10 +77,14 @@ export function parseStateDiagram(source) {
 
   // `[*]` anchors: mermaid draws ONE initial and ONE final node per scope,
   // no matter how many transitions touch them — so the anchor id is keyed by
-  // (scope, start|end), not by occurrence.
+  // (scope, start|end). In a concurrent composite each parallel region is its
+  // OWN scope, so the current region index is part of the key; otherwise all
+  // regions' `[*]` would collapse into one shared node that wires across the
+  // dividers into a single sequential chain.
   function pseudoId(parentId, kind) {
-    const suffix = parentId ? `_${parentId}` : "_root";
-    return `__${kind}${suffix}`;
+    if (!parentId) return `__${kind}_root`;
+    const region = regionCounter.get(parentId) || 0;
+    return `__${kind}_${parentId}_r${region}`;
   }
 
   function ensureState(id, parent, kind = "state", label = null) {

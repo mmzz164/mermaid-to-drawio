@@ -181,12 +181,13 @@ export function parseSequenceDiagram(source) {
     }
 
     let m;
-    // `create participant X` declares X mid-flow; all participants are laid
-    // out at the top regardless, so treat it as a plain declaration.
-    if ((m = line.match(new RegExp(`^(?:create\\s+)?(participant|actor)\\s+(${ID_RE}|"[^"]+")(?:\\s+as\\s+(.+))?$`, "i")))) {
-      const kind = m[1].toLowerCase();
-      const id = unquote(m[2]);
-      const label = m[3] ? unquote(m[3].trim()) : id;
+    // `create participant X` declares X mid-flow: its lifeline should begin at
+    // the create point (a "create" step marks where), not at the top.
+    if ((m = line.match(new RegExp(`^(?:(create)\\s+)?(participant|actor)\\s+(${ID_RE}|"[^"]+")(?:\\s+as\\s+(.+))?$`, "i")))) {
+      const isCreate = !!m[1];
+      const kind = m[2].toLowerCase();
+      const id = unquote(m[3]);
+      const label = m[4] ? unquote(m[4].trim()) : id;
       let p = participantIndex.get(id);
       if (!p) {
         p = { id, label, isActor: kind === "actor" };
@@ -195,6 +196,10 @@ export function parseSequenceDiagram(source) {
       } else {
         p.label = label;
         if (kind === "actor") p.isActor = true;
+      }
+      if (isCreate) {
+        p.created = true;
+        steps.push({ type: "create", participant: id });
       }
       if (currentBox && !currentBox.participants.includes(id)) {
         currentBox.participants.push(id);
@@ -253,9 +258,13 @@ export function parseSequenceDiagram(source) {
       continue;
     }
 
-    // `destroy X`: lifeline destruction isn't drawn; accept it silently.
+    // `destroy X`: ends X's lifeline with an ✕ at this point.
     if ((m = line.match(new RegExp(`^destroy\\s+(${ID_RE}|"[^"]+")$`, "i")))) {
-      ensureParticipant(unquote(m[1]));
+      const id = unquote(m[1]);
+      ensureParticipant(id);
+      const p = participantIndex.get(id);
+      if (p) p.destroyed = true;
+      steps.push({ type: "destroy", participant: id });
       continue;
     }
 

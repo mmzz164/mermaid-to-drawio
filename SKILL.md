@@ -112,7 +112,7 @@ CLI は未対応構文を **警告として stderr に出して処理を続行**
   - ID にドット可
 - **sequenceDiagram**
   - `participant/actor`, 同期/非同期/応答各種矢印, 自己メッセージ（ループ描画）
-  - **`create participant/actor X` / `destroy X`** — create は通常宣言として受理、destroy は静かに無視
+  - **`create participant/actor X` / `destroy X`** — create は該当参加者のライフラインを生成位置から開始、destroy はライフラインを ✕ で終端(本家準拠)
   - `alt/opt/loop/par/critical/break` のネスト
   - `Note over/left of/right of`
   - **`A->>+B` / `B-->>-A` 活性化サフィックス**（活性化バーを描画）

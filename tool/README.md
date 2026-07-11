@@ -108,7 +108,7 @@ Page naming for Markdown input: each block's YAML front-matter `title:` > the ne
 
 **sequenceDiagram**
 - `participant X` / `participant X as Alias` / `actor X`; quoted ids too (`participant "User A" as U`)
-- `create participant X` / `create actor X` accepted as plain declarations (participants always lay out at the top); `destroy X` is silently accepted
+- `create participant X` / `create actor X` start the participant's lifeline at the creation point; `destroy X` ends its lifeline with an ✕ (matching mermaid)
 - Messages: `->`, `-->`, `->>`, `-->>`, `-x`, `--x`, `-)`, `--)`
 - Activation suffixes: `A->>+B: msg` (activate B), `B-->>-A: msg` (deactivate the sender).
   Activation bars are drawn on the lifeline.
