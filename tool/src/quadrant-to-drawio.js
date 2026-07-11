@@ -100,7 +100,9 @@ export function quadrantToDrawio(mermaidSource, opts = {}) {
   QPOS.forEach(([dx, dy], i) => {
     cells.push(
       `<mxCell id="q-quad-${i + 1}" value="${escapeXml(model.quadrants[i])}" ` +
-        `style="rounded=0;html=1;whiteSpace=wrap;fillColor=${Q_FILLS[i]};strokeColor=#999999;fontSize=12;fontColor=#555555;verticalAlign=middle;align=center;" vertex="1" parent="1">` +
+        // Label at the top of the quadrant like mermaid — the center is where
+        // data points usually land.
+        `style="rounded=0;html=1;whiteSpace=wrap;fillColor=${Q_FILLS[i]};strokeColor=#999999;fontSize=12;fontColor=#555555;verticalAlign=top;spacingTop=6;align=center;" vertex="1" parent="1">` +
         `<mxGeometry x="${x0 + dx * half}" y="${y0 + dy * half}" width="${half}" height="${half}" as="geometry" />` +
         `</mxCell>`
     );

@@ -23,25 +23,38 @@ export function parseKanban(source) {
   let columnIndent = null;
   let lastCard = null;
 
+  function parseMetaInto(card, body) {
+    for (const kv of body.split(",")) {
+      const kvm = kv.match(/^\s*(\w+)\s*:\s*(.+?)\s*$/);
+      if (kvm) {
+        card.meta[kvm[1]] = kvm[2].replace(/^['"]|['"]$/g, "");
+      }
+    }
+  }
+
   for (const { line, trimmed, lineNo } of bodyLines(source, /^kanban\b/i)) {
-    // Metadata attaches to the previous card: @{ assigned: 'x', priority: 'High' }
+    // Metadata on its own line attaches to the previous card (tolerated even
+    // though mermaid itself requires the inline form).
     let m;
     if ((m = trimmed.match(/^@\{(.*)\}$/))) {
       if (!lastCard) {
         warnings.push(`Line ${lineNo}: metadata with no card: ${trimmed}`);
         continue;
       }
-      for (const kv of m[1].split(",")) {
-        const kvm = kv.match(/^\s*(\w+)\s*:\s*(.+?)\s*$/);
-        if (kvm) {
-          lastCard.meta[kvm[1]] = kvm[2].replace(/^['"]|['"]$/g, "");
-        }
-      }
+      parseMetaInto(lastCard, m[1]);
       continue;
     }
 
+    // Mermaid's canonical form puts metadata inline: `id6[Task]@{ assigned: 'x' }`
+    let itemSrc = trimmed;
+    let metaBody = null;
+    if ((m = trimmed.match(/^(.+?)@\{(.*)\}\s*$/))) {
+      itemSrc = m[1].trim();
+      metaBody = m[2];
+    }
+
     const indent = line.match(/^[ \t]*/)[0].replace(/\t/g, "    ").length;
-    const text = parseItemText(trimmed);
+    const text = parseItemText(itemSrc);
     if (columnIndent === null || indent <= columnIndent) {
       columnIndent = indent;
       currentColumn = { name: text, cards: [] };
@@ -53,6 +66,7 @@ export function parseKanban(source) {
         columns.push(currentColumn);
       }
       lastCard = { text, meta: {} };
+      if (metaBody) parseMetaInto(lastCard, metaBody);
       currentColumn.cards.push(lastCard);
     }
   }

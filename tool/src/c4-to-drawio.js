@@ -167,11 +167,45 @@ function elementSize(el) {
 
 function elementLabel(el) {
   const typeName =
-    el.family.charAt(0).toUpperCase() + el.family.slice(1) + (el.ext ? " Ext" : "");
+    el.family.charAt(0).toUpperCase() +
+    el.family.slice(1) +
+    (el.shape === "db" ? " Db" : el.shape === "queue" ? " Queue" : "") +
+    (el.ext ? " Ext" : "");
   let s = `<b>${escapeXml(el.label)}</b>`;
   s += `<br><font style="font-size:9px">[${escapeXml(typeName)}${el.techn ? ": " + escapeXml(el.techn) : ""}]</font>`;
   if (el.descr) s += `<br><font style="font-size:10px">${escapeXml(el.descr)}</font>`;
   return s;
+}
+
+// Liang-Barsky: does the segment p1→p2 pass through rect r (inflated by pad)?
+function segmentIntersectsRect(p1, p2, r, pad = 0) {
+  const xmin = r.x - pad;
+  const ymin = r.y - pad;
+  const xmax = r.x + r.w + pad;
+  const ymax = r.y + r.h + pad;
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  let t0 = 0;
+  let t1 = 1;
+  const clip = (p, q) => {
+    if (p === 0) return q >= 0;
+    const t = q / p;
+    if (p < 0) {
+      if (t > t1) return false;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return false;
+      if (t < t1) t1 = t;
+    }
+    return true;
+  };
+  return (
+    clip(-dx, p1.x - xmin) &&
+    clip(dx, xmax - p1.x) &&
+    clip(-dy, p1.y - ymin) &&
+    clip(dy, ymax - p1.y) &&
+    t0 <= t1
+  );
 }
 
 /**
@@ -253,6 +287,9 @@ export function c4ToDrawio(mermaidSource, opts = {}) {
   // children so the children draw on top).
   const titleH = model.title ? 40 : 0;
   let bId = 0;
+  // Absolute rects per alias — used after emission to route relation edges
+  // around the leaf elements they would otherwise cross.
+  const absRect = new Map();
   (function emit(group, x, y) {
     for (const child of group.children) {
       const cx = x + PAD + child.relX;
@@ -268,9 +305,11 @@ export function c4ToDrawio(mermaidSource, opts = {}) {
             `</mxCell>`
         );
         bId++;
+        absRect.set(child.alias, { x: cx, y: cy, w: child.w, h: child.h, leaf: false });
         emit(child, cx, cy);
       } else {
         const { w, h } = elementSize(child);
+        absRect.set(child.alias, { x: cx, y: cy, w, h, leaf: true });
         const { fill, stroke, font } = elementColors(child);
         let style;
         if (child.shape === "db") {
@@ -309,21 +348,51 @@ export function c4ToDrawio(mermaidSource, opts = {}) {
   }
 
   // Relations between concrete elements (aliases are globally unique ids).
+  // A straight edge that would pass through another leaf element (common in
+  // stacked layouts) is routed as a "bow" around the right side instead, so
+  // neither the line nor its mid-edge label sits on top of a box.
+  const maxRight = Math.max(...[...absRect.values()].map((r) => r.x + r.w));
+  let bowCount = 0;
+  let maxBowX = 0;
   model.rels.forEach((rel, i) => {
     if (!chains.has(rel.from) || !chains.has(rel.to)) return;
     let label = escapeXml(rel.label);
     if (rel.techn) label += `<br><font style="font-size:9px"><i>[${escapeXml(rel.techn)}]</i></font>`;
     const start = rel.bidir ? "startArrow=block;startFill=1;" : "";
+    let routing = "";
+    let geo = `<mxGeometry relative="1" as="geometry" />`;
+    const s = absRect.get(rel.from);
+    const t = absRect.get(rel.to);
+    if (s && t) {
+      const sc = { x: s.x + s.w / 2, y: s.y + s.h / 2 };
+      const tc = { x: t.x + t.w / 2, y: t.y + t.h / 2 };
+      const crosses = [...absRect.entries()].some(
+        ([alias, r]) =>
+          r.leaf && alias !== rel.from && alias !== rel.to && segmentIntersectsRect(sc, tc, r, 6)
+      );
+      if (crosses) {
+        const bowX = maxRight + 40 + bowCount++ * 26;
+        maxBowX = Math.max(maxBowX, bowX);
+        routing = "exitX=1;exitY=0.5;entryX=1;entryY=0.5;rounded=1;";
+        geo =
+          `<mxGeometry relative="1" as="geometry">` +
+          `<Array as="points">` +
+          `<mxPoint x="${round(bowX)}" y="${round(sc.y)}" />` +
+          `<mxPoint x="${round(bowX)}" y="${round(tc.y)}" />` +
+          `</Array>` +
+          `</mxGeometry>`;
+      }
+    }
     cells.push(
       `<mxCell id="c4-rel-${i}" value="${escapeXml(label)}" ` +
-        `style="html=1;endArrow=block;endFill=1;${start}strokeColor=#666666;fontSize=10;fontColor=#444444;labelBackgroundColor=#ffffff;rounded=1;" ` +
+        `style="html=1;endArrow=block;endFill=1;${start}${routing}strokeColor=#666666;fontSize=10;fontColor=#444444;labelBackgroundColor=#ffffff;rounded=1;" ` +
         `edge="1" parent="1" source="${escapeXml(rel.from)}" target="${escapeXml(rel.to)}">` +
-        `<mxGeometry relative="1" as="geometry" />` +
+        geo +
         `</mxCell>`
     );
   });
 
-  const pageW = model.root.w + PAD;
+  const pageW = Math.max(model.root.w, maxBowX + 40) + PAD;
   const pageH = model.root.h + titleH + PAD;
   return { xml: wrapXml(cells, pageW, pageH, diagramName), warnings };
 }

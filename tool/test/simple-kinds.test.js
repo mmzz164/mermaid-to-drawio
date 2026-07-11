@@ -245,3 +245,30 @@ test("sankey: nodes are layered and edges width-scaled", () => {
   const w2 = +xml.match(/id="sk-e-1"[^>]*strokeWidth=(\d+)/)[1];
   assert.ok(w1 > w2);
 });
+
+// ---------- kanban inline metadata (mermaid's canonical form) ----------
+
+test("kanban: inline @{} metadata attaches to its card", () => {
+  const m = parseKanban(`kanban
+  Todo
+    id1[Task A]@{ assigned: 'bob', priority: 'High' }
+    [Task B]`);
+  assert.deepEqual(m.warnings, []);
+  const [a, b] = m.columns[0].cards;
+  assert.equal(a.text, "Task A");
+  assert.equal(a.meta.assigned, "bob");
+  assert.equal(a.meta.priority, "High");
+  assert.equal(b.text, "Task B");
+});
+
+test("quadrant: quadrant labels sit at the top of each cell", () => {
+  const { xml } = quadrantToDrawio(`quadrantChart
+  quadrant-1 One
+  quadrant-2 Two
+  quadrant-3 Three
+  quadrant-4 Four
+  P: [0.8, 0.8]`);
+  const quadStyles = [...xml.matchAll(/<mxCell id="q-quad-\d"[^>]*style="([^"]*)"/g)].map((m) => m[1]);
+  assert.equal(quadStyles.length, 4);
+  for (const s of quadStyles) assert.match(s, /verticalAlign=top/);
+});

@@ -356,3 +356,15 @@ test("sequenceToDrawio draws rect highlight spanning involved lifelines", () => 
   // Behind messages: the rect cell appears before the first message cell.
   assert.ok(xml.indexOf("rect-bg-1") < xml.indexOf(`"msg-1"`));
 });
+
+test("sequence: message edges keep a visible arrowhead (endSize=0 regression)", () => {
+  const { xml } = sequenceToDrawio(`sequenceDiagram
+  A->>B: hi
+  B-->>A: yo`);
+  const msgStyles = [...xml.matchAll(/<mxCell id="msg-\d+"[^>]*style="([^"]*)"/g)].map((m) => m[1]);
+  assert.equal(msgStyles.length, 2);
+  for (const s of msgStyles) {
+    assert.match(s, /endArrow=(block|open)/);
+    assert.doesNotMatch(s, /endSize=0/);
+  }
+});

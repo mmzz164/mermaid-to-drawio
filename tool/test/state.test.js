@@ -158,3 +158,14 @@ test("state renderer: composite referenced before declaration is not emitted twi
   // ...and it is the composite frame, not a plain state.
   assert.match(xml, /id="Active"[^>]*style="[^"]*verticalAlign=top/);
 });
+
+test("state: transitions to [*] in one scope share a single final node", () => {
+  const m = parseStateDiagram(`stateDiagram-v2
+  [*] --> A
+  A --> [*]
+  B --> [*]`);
+  const finals = [...m.states.values()].filter((s) => s.kind === "end");
+  assert.equal(finals.length, 1);
+  const starts = [...m.states.values()].filter((s) => s.kind === "start");
+  assert.equal(starts.length, 1);
+});

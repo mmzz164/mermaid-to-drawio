@@ -70,7 +70,26 @@ export function classDiagramToDrawio(src, opts = {}) {
 
   // Layout result: absolute positions per class + namespace frames.
   const pos = new Map(); // class id -> {x, y, width, height}
+  const notePos = new Map(); // note index -> {x, y}
   const nsFrames = []; // {name, x, y, width, height}
+  const NOTE_W = 180;
+  const NOTE_H = 60;
+
+  // Notes join the layout as real nodes (linked to their target class) so
+  // dagre reserves space for them instead of them landing at the origin.
+  function addNoteNodes(g, repFn) {
+    model.notes.forEach((note, i) => {
+      g.setNode(`__note_${i}`, { width: NOTE_W, height: NOTE_H });
+      const t = note.target && model.classes.has(note.target) ? repFn(note.target) : null;
+      if (t && g.hasNode(t)) g.setEdge(t, `__note_${i}`, {}, `n${i}`);
+    });
+  }
+  function readNotePositions(g) {
+    model.notes.forEach((_, i) => {
+      const n = g.node(`__note_${i}`);
+      if (n) notePos.set(i, { x: n.x - n.width / 2, y: n.y - n.height / 2 });
+    });
+  }
   let totalW = 0;
   let totalH = 0;
   const NS_HEADER = 30; // room for the namespace title inside the frame
@@ -87,12 +106,14 @@ export function classDiagramToDrawio(src, opts = {}) {
       if (!g.hasNode(r.from) || !g.hasNode(r.to)) continue;
       g.setEdge(r.from, r.to, {}, `e${ei++}`);
     }
+    addNoteNodes(g, (id) => id);
     dagre.layout(g);
     for (const cls of model.classes.values()) {
       const n = g.node(cls.id);
       if (!n) continue;
       pos.set(cls.id, { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height });
     }
+    readNotePositions(g);
     const ga = g.graph();
     totalW = ga.width || 0;
     totalH = ga.height || 0;
@@ -151,6 +172,7 @@ export function classDiagramToDrawio(src, opts = {}) {
       if (a === b || !g.hasNode(a) || !g.hasNode(b)) continue;
       g.setEdge(a, b, {}, `e${ei++}`);
     }
+    addNoteNodes(g, rep);
     dagre.layout(g);
     for (const ns of model.namespaces) {
       const n = g.node(nsNodeId(ns.name));
@@ -168,6 +190,7 @@ export function classDiagramToDrawio(src, opts = {}) {
       if (!n) continue;
       pos.set(cls.id, { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height });
     }
+    readNotePositions(g);
     const ga = g.graph();
     totalW = ga.width || 0;
     totalH = ga.height || 0;
@@ -197,10 +220,11 @@ export function classDiagramToDrawio(src, opts = {}) {
     // values when `html=1` is set; we get tidy 3-section UML class boxes
     // without spawning child cells.
     const parts = [];
-    parts.push(`<p style=\"margin:0;padding:4px 8px;text-align:center;font-weight:bold;border-bottom:1px solid #999;\">${escapeXml(cls.label)}</p>`);
+    // UML order: «stereotype» above the class name.
     if (cls.stereotype) {
-      parts.push(`<p style=\"margin:0;padding:0 8px;text-align:center;font-style:italic;color:#666;\">&lt;&lt;${escapeXml(cls.stereotype)}&gt;&gt;</p>`);
+      parts.push(`<p style=\"margin:0;padding:4px 8px 0;text-align:center;font-style:italic;color:#666;\">«${escapeXml(cls.stereotype)}»</p>`);
     }
+    parts.push(`<p style=\"margin:0;padding:${cls.stereotype ? "0" : "4px"} 8px 4px;text-align:center;font-weight:bold;border-bottom:1px solid #999;\">${escapeXml(cls.label)}</p>`);
     if (cls.attributes.length) {
       const inner = cls.attributes
         .map((a) => `<div style=\"padding:2px 10px;\">${escapeXml(a)}</div>`) // attr per line
@@ -241,6 +265,20 @@ export function classDiagramToDrawio(src, opts = {}) {
     if (startFill) segs.push(startFill);
     if (endFill) segs.push(endFill);
     if (r.dashed) segs.push("dashed=1");
+    // Pin exit/entry to the facing sides of the two boxes: the orthogonal
+    // router then jogs in the rank gap instead of wandering over other
+    // classes (which also kept the mid-edge label on top of them).
+    const sp = pos.get(r.from);
+    const tp = pos.get(r.to);
+    if (sp && tp && r.from !== r.to) {
+      const dx = tp.x + tp.width / 2 - (sp.x + sp.width / 2);
+      const dy = tp.y + tp.height / 2 - (sp.y + sp.height / 2);
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        segs.push(dy > 0 ? "exitX=0.5;exitY=1;entryX=0.5;entryY=0" : "exitX=0.5;exitY=0;entryX=0.5;entryY=1");
+      } else {
+        segs.push(dx > 0 ? "exitX=1;exitY=0.5;entryX=0;entryY=0.5" : "exitX=0;exitY=0.5;entryX=1;entryY=0.5");
+      }
+    }
     const style = segs.join(";") + ";";
     // Compose the label: optional `fromCard` is anchored near the source,
     // `toCard` near the target, and a center label for the verb/role.
@@ -273,15 +311,15 @@ export function classDiagramToDrawio(src, opts = {}) {
     eId++;
   }
 
-  // Notes
-  let nId = 1;
-  for (const note of model.notes) {
-    const noteId = `cls-note-${nId}`;
+  // Notes (positioned by the layout next to their target class).
+  for (const [i, note] of model.notes.entries()) {
+    const noteId = `cls-note-${i + 1}`;
+    const p = notePos.get(i) || { x: 0, y: 0 };
     cells.push(
       `<mxCell id="${noteId}" value="${escapeXml(note.text)}" ` +
         `style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacingLeft=4;spacingTop=4;" ` +
         `vertex="1" parent="1">` +
-        `<mxGeometry x="0" y="0" width="180" height="60" as="geometry" /></mxCell>`,
+        `<mxGeometry x="${round(p.x)}" y="${round(p.y)}" width="${NOTE_W}" height="${NOTE_H}" as="geometry" /></mxCell>`,
     );
     if (note.target && model.classes.has(note.target)) {
       cells.push(
@@ -289,7 +327,6 @@ export function classDiagramToDrawio(src, opts = {}) {
           `<mxGeometry relative="1" as="geometry" /></mxCell>`,
       );
     }
-    nId++;
   }
 
   const pageW = Math.max(850, Math.round(totalW || 850) + 40);

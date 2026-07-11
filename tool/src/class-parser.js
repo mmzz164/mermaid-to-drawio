@@ -107,8 +107,14 @@ function classifyMember(raw) {
   const stereo = s.match(/^<<\s*([A-Za-z0-9_\-]+)\s*>>$/);
   if (stereo) return { kind: "stereotype", text: s, stereotype: stereo[1].toLowerCase() };
   // Methods have a `(` somewhere
-  if (/\(.*\)/.test(s)) return { kind: "method", text: s };
-  return { kind: "attribute", text: s };
+  if (/\(.*\)/.test(s)) return { kind: "method", text: tildesToAngles(s) };
+  return { kind: "attribute", text: tildesToAngles(s) };
+}
+
+// Mermaid writes generics with tildes (`List~Dog~`); display them as angle
+// brackets like mermaid does. Pairs convert independently (`f(List~int~) List~str~`).
+function tildesToAngles(s) {
+  return s.replace(/~([^~]+)~/g, "<$1>");
 }
 
 /**
@@ -133,11 +139,15 @@ export function parseClassDiagram(source) {
   let currentNamespace = null; // {name, classes: []}
 
   function ensureClass(id, label = null) {
-    const key = id;
+    // `Owner~T~` is the class `Owner` with generic `T`: mermaid identifies it
+    // as `Owner` in relations, and titles the box `Owner<T>`.
+    const generic = id.match(/^([^~]+)~(.+)~$/);
+    const key = generic ? generic[1] : id;
+    const genericLabel = generic ? `${key}<${tildesToAngles(generic[2])}>` : null;
     if (!classes.has(key)) {
       classes.set(key, {
         id: key,
-        label: label || id,
+        label: label || genericLabel || key,
         stereotype: null,
         attributes: [],
         methods: [],
@@ -148,9 +158,10 @@ export function parseClassDiagram(source) {
         classes.get(key).namespace = currentNamespace.name;
         currentNamespace.classes.push(key);
       }
-    } else if (label) {
+    } else {
       const c = classes.get(key);
-      if (c.label === c.id) c.label = label;
+      if (label && c.label === c.id) c.label = label;
+      else if (genericLabel && c.label === c.id) c.label = genericLabel;
     }
     return key;
   }
@@ -158,7 +169,9 @@ export function parseClassDiagram(source) {
   function addMember(classId, raw) {
     const c = classifyMember(raw);
     if (!c) return;
-    const cls = classes.get(classId) || ensureClass(classId) && classes.get(classId);
+    // ensureClass normalizes generic ids (`Owner~T~` → key `Owner`), so always
+    // resolve the map key through it.
+    const cls = classes.get(ensureClass(classId));
     if (c.kind === "stereotype") {
       cls.stereotype = c.stereotype;
     } else if (c.kind === "method") {

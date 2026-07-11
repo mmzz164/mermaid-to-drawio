@@ -154,3 +154,26 @@ test("class renderer: namespace frame encloses its member classes", () => {
   // The frame is emitted before the classes so it stays behind them.
   assert.ok(xml.indexOf('id="cls-ns-0"') < xml.indexOf('id="Triangle"'));
 });
+
+test("class parser: generic `Owner~T~` unifies with plain `Owner` and displays <T>", () => {
+  const m = parseClassDiagram(`classDiagram
+    class Owner~T~ {
+      +List~Dog~ dogs
+    }
+    Owner o-- Dog
+    Owner~T~ o-- Cat`);
+  assert.ok(!m.classes.has("Owner~T~"), "raw generic id must not create a second class");
+  const o = m.classes.get("Owner");
+  assert.equal(o.label, "Owner<T>");
+  assert.deepEqual(o.attributes, ["+List<Dog> dogs"]);
+  assert.ok(m.relations.every((r) => r.from === "Owner"));
+});
+
+test("class renderer: stereotype renders as guillemets", () => {
+  const { xml } = classDiagramToDrawio(`classDiagram
+    class Comparable {
+      <<interface>>
+    }`);
+  assert.match(xml, /«interface»/);
+  assert.doesNotMatch(xml, /&lt;&lt;interface&gt;&gt;/);
+});

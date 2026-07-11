@@ -70,14 +70,12 @@ export function parseStateDiagram(source) {
   const regioned = new Set(); // composite ids that contain at least one `--`
   const childRegion = new Map(); // child id -> region index at declaration
 
-  // Synthesize a unique anchor id for each `[*]` occurrence so multiple
-  // start/end markers don't collapse into a single node. The anchor is
-  // attached to the nearest enclosing composite (or null for top-level).
-  let pseudoCounter = 0;
-  function pseudoId(parentId) {
-    pseudoCounter++;
+  // `[*]` anchors: mermaid draws ONE initial and ONE final node per scope,
+  // no matter how many transitions touch them — so the anchor id is keyed by
+  // (scope, start|end), not by occurrence.
+  function pseudoId(parentId, kind) {
     const suffix = parentId ? `_${parentId}` : "_root";
-    return `__pseudo${suffix}_${pseudoCounter}`;
+    return `__${kind}${suffix}`;
   }
 
   function ensureState(id, parent, kind = "state", label = null) {
@@ -271,8 +269,8 @@ export function parseStateDiagram(source) {
       const rawFrom = trans[1];
       const rawTo = trans[2];
       const label = trans[3] ? trans[3].trim() : null;
-      const from = rawFrom === "[*]" ? ensureState(pseudoId(parent), parent, "start") : ensureState(rawFrom, parent);
-      const to = rawTo === "[*]" ? ensureState(pseudoId(parent), parent, "end") : ensureState(rawTo, parent);
+      const from = rawFrom === "[*]" ? ensureState(pseudoId(parent, "start"), parent, "start") : ensureState(rawFrom, parent);
+      const to = rawTo === "[*]" ? ensureState(pseudoId(parent, "end"), parent, "end") : ensureState(rawTo, parent);
       transitions.push({ from, to, label });
       continue;
     }

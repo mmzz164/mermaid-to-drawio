@@ -188,3 +188,30 @@ test("gitGraph: every branch gets a full-width lane line", () => {
   const lastDot = xml.match(/id="gg-c-3".*?<mxGeometry x="(\d+)"/s);
   assert.ok(+lane[1] >= +lastDot[1], "lane extends past the last commit");
 });
+
+test("C4: SystemDb type annotation says System Db", () => {
+  const { xml } = c4ToDrawio(`C4Context
+  Person(u, "User")
+  SystemDb(db, "DB", "data")
+  Rel(u, db, "reads")
+`);
+  assert.match(xml, /\[System Db\]/);
+});
+
+test("C4: a rel crossing another element bows around it; adjacent rels stay direct", () => {
+  const { xml } = c4ToDrawio(`C4Context
+  System(a, "Top")
+  System(b, "Middle")
+  System(c, "Bottom")
+  Rel(a, b, "next")
+  Rel(b, c, "next2")
+  Rel(a, c, "skip")
+`);
+  // a→b is adjacent: no waypoints.
+  const direct = xml.match(/id="c4-rel-0".*?<\/mxCell>/s)[0];
+  assert.doesNotMatch(direct, /<Array as="points">/);
+  // a→c passes through b's box: routed around the side with two waypoints.
+  const bow = xml.match(/id="c4-rel-2".*?<\/mxCell>/s)[0];
+  assert.match(bow, /exitX=1/);
+  assert.equal((bow.match(/<mxPoint /g) || []).length, 2);
+});

@@ -333,7 +333,7 @@ export function sequenceToDrawio(mermaidSource, opts = {}) {
           "html=1;" +
           arrowEndStyle(step.head) +
           lineStyle(step.line) +
-          "verticalAlign=bottom;align=center;startSize=0;endSize=0;rounded=0;labelBackgroundColor=#ffffff;";
+          "verticalAlign=bottom;align=center;rounded=0;labelBackgroundColor=#ffffff;";
         cells.push(
           `<mxCell id="msg-${edgeId}" value="${escapeXml(labelText)}" style="${style}" edge="1" parent="1">` +
             `<mxGeometry relative="1" as="geometry">` +
