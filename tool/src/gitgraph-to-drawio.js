@@ -177,6 +177,21 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
   const firstOfBranch = new Map();
   for (const c of model.commits) if (!firstOfBranch.has(c.branch)) firstOfBranch.set(c.branch, c);
 
+  // Faint full-width dotted lane guide per branch (mermaid draws these behind
+  // the bold coloured branch line, so each lane reads as a continuous track).
+  const xEnd = x0 + model.commits.length * PITCH_X;
+  model.branches.forEach((b, i) => {
+    const y = MARGIN + i * PITCH_Y + PITCH_Y / 2;
+    cells.push(
+      `<mxCell id="gg-guide-${i}" value="" style="endArrow=none;html=1;dashed=1;dashPattern=1 3;strokeWidth=1;strokeColor=#cccccc;" edge="1" parent="1">` +
+        `<mxGeometry relative="1" as="geometry">` +
+        `<mxPoint x="${round(x0)}" y="${round(y)}" as="sourcePoint" />` +
+        `<mxPoint x="${round(xEnd)}" y="${round(y)}" as="targetPoint" />` +
+        `</mxGeometry>` +
+        `</mxCell>`
+    );
+  });
+
   // Per-branch lane lines span only the branch's ACTIVE range: from its fork
   // point (the parent commit it branched off) to its last commit or the merge
   // that closes it. Mermaid draws the coloured branch line over that interval,
@@ -256,8 +271,11 @@ export function gitGraphToDrawio(mermaidSource, opts = {}) {
       style = `rounded=0;html=1;fillColor=${color};strokeColor=${darken(color)};strokeWidth=2;`;
     } else if (c.type === "REVERSE") {
       style = `ellipse;html=1;fillColor=#ffffff;strokeColor=${darken(color)};strokeWidth=2;fontStyle=1;`;
+    } else if (isMerge) {
+      // Merge commits are hollow (white fill, coloured ring) like mermaid.
+      style = `ellipse;html=1;fillColor=#ffffff;strokeColor=${color};strokeWidth=3;`;
     } else {
-      style = `ellipse;html=1;fillColor=${color};strokeColor=${isMerge ? darken(color) : "#ffffff"};strokeWidth=2;`;
+      style = `ellipse;html=1;fillColor=${color};strokeColor=#ffffff;strokeWidth=2;`;
     }
     const value = c.type === "REVERSE" ? "✕" : "";
     cells.push(
